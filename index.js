@@ -1,35 +1,50 @@
-function init() {
-  let currentObserver;
+// Signal pattern inspired by SolidJS
+// Following the example of
+// https://www.thisdot.co/blog/deep-dive-into-how-signals-work-in-solidjs
+
+export const { createSignal, createEffect, cleanEffect } = (() => {
+  //Global variables used to pass information to the createSignal function
+  let currentEffect;
   let currentMemo;
 
-  function createMemo(callback) {
-    let cachedMemoValue; // Store the cached value here
-    const dependencies = new Map();
+  // Global functions used to set global variables
+  const setCurrentMemo = (value) => (currentMemo = value);
+  const setCurrentEffect = (value) => (currentEffect = value);
 
-    const setCachedMemoValue = (value) => (cachedMemoValue = value);
-    const setCurrentMemo = (value) => (currentMemo = value);
-    const memoize = () => {
-      if (cachedMemoValue === undefined) {
-        setCachedMemoValue(callback());
+// --------------------------------------------------------------------------------
+  function createMemo(callback) {
+    let cachedData; 
+    let shouldClearCache = true;
+    const dependencies = new Map(); // Will be set as [Symbol, value] in createSignal 
+    
+    const setShouldClearCache = (bool=true) => (shouldClearCache = bool);
+
+    const getResult = () => {
+      if (shouldClearCache) {
+        // Update the cached data and reset flag
+        cachedData = callback()
+        setShouldClearCache(false)
       } else {
+        // Remove currentMemo from the global variable
         setCurrentMemo();
       }
-      return cachedMemoValue;
+      return cachedData;
     };
-    currentMemo = { clearCache: setCachedMemoValue, dependencies };
 
-    return memoize;
+    setCurrentMemo ({ clearCache: ()=>setShouldClearCache(), dependencies });
+
+    return getResult;
   }
 
-  //---------------------------
+// --------------------------------------------------------------------------------
   function createSignal(initialValue = undefined) {
     let value = initialValue;
     const memoKey = Symbol;
     const observers = new Set();
     const memos = new Set();
     const get = () => {
-      if (currentObserver && !observers.has(currentObserver)) {
-        observers.add(currentObserver);
+      if (currentEffect && !observers.has(currentEffect)) {
+        observers.add(currentEffect);
       }
       if (currentMemo && !memos.has(currentMemo)) {
         currentMemo.dependencies.set(memoKey, initialValue);
@@ -56,9 +71,9 @@ function init() {
   }
   //---------------------------
   function createEffect(fn) {
-    currentObserver = fn;
+    currentEffect = fn;
     const result = fn();
-    currentObserver = undefined;
+    currentEffect = undefined;
     return result;
   }
   //---------------------------
