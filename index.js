@@ -2,84 +2,115 @@
 // Following the example of
 // https://www.thisdot.co/blog/deep-dive-into-how-signals-work-in-solidjs
 
-export const { createSignal, createEffect, cleanEffect } = (() => {
-  //Global variables used to pass information to the createSignal function
+const init = () => {
+  // These globals are set in the create functions and then used by the signals
+  // as a function or identifier or both before being cleared
   let currentEffect;
   let currentMemo;
+  let currentBatch;
 
   // Global functions used to set global variables
   const setCurrentMemo = (value) => (currentMemo = value);
   const setCurrentEffect = (value) => (currentEffect = value);
+  const setCurrentBatch = (value) => (currentBatch = value);
+  const updateMemos = (memosMap, newValue) => {
+    memosMap.forEach((cachedValue, clearCache) => {
+      if (cachedValue !== newValue) {
+        memosMap.set(clearCache, newValue);
+        clearCache();
+      }
+    });
+  };
+  const runEffects = (effectSet, newValue) =>
+    effectSet.forEach((fn) => {
+      if (fn(newValue)) {
+        effectSet.delete(fn);
+      }
+    });
 
-// --------------------------------------------------------------------------------
-  function createMemo(callback) {
-    let cachedData; 
+  // --------------------------------------------------------------------------------
+  function createMemo(getData) {
+    let cachedData;
     let shouldClearCache = true;
-    const dependencies = new Map(); // Will be set as [Symbol, value] in createSignal 
-    
-    const setShouldClearCache = (bool=true) => (shouldClearCache = bool);
 
-    const getResult = () => {
+    const setClearCache = (bool = true) => (shouldClearCache = bool);
+
+    const getMemoizedData = () => {
       if (shouldClearCache) {
         // Update the cached data and reset flag
-        cachedData = callback()
-        setShouldClearCache(false)
-      } else {
-        // Remove currentMemo from the global variable
-        setCurrentMemo();
+        cachedData = getData();
+        setClearCache(false);
       }
+      // NOTE: The global currentMemoClearCache will remain set until getMemoizedData is called
+      // It needs to remain set so all signals in getData can add it to their memosMap
+      // Here it's being reset to undefined
+      currentMemo && setCurrentMemo();
+
       return cachedData;
     };
+    // NOTE: The currentMemoClearCache global is being set to a fn that
+    // sets the shouldClearCache flag to true
+    // It will be used by the signal to clear cache if the value changes
+    setCurrentMemo(setClearCache);
 
-    setCurrentMemo ({ clearCache: ()=>setShouldClearCache(), dependencies });
-
-    return getResult;
+    return getMemoizedData;
   }
 
-// --------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------
+  function batch(callback) {
+    setCurrentBatch(true);
+    callback();
+    currentBatch.forEach((fn) => fn());
+    setCurrentBatch();
+  }
+  // --------------------------------------------------------------------------------
   function createSignal(initialValue = undefined) {
     let value = initialValue;
-    const memoKey = Symbol;
-    const observers = new Set();
-    const memos = new Set();
+    const effectSet = new Set();
+    const memosMap = new Map();
+
     const get = () => {
-      if (currentEffect && !observers.has(currentEffect)) {
-        observers.add(currentEffect);
+      if (currentEffect && !effectSet.has(currentEffect)) {
+        effectSet.add(currentEffect);
       }
-      if (currentMemo && !memos.has(currentMemo)) {
-        currentMemo.dependencies.set(memoKey, initialValue);
-        memos.add(currentMemo);
+      if (currentMemo && !memosMap.has(currentMemo)) {
+        memosMap.set(currentMemo, value);
       }
       return value;
     };
 
     const set = (newValue) => {
       value = newValue;
-      memos.forEach((memo) => {
-        if (memo.dependencies.get(memoKey) !== newValue) {
-          memo.dependencies.set(memoKey, newValue);
-          memo.clearCache();
-        }
-      });
-      observers.forEach((fn) => {
-        if (fn(newValue)) {
-          observers.delete(fn);
-        }
-      });
+
+      if (currentBatch) {
+        setCurrentBatch([
+          () => updateMemos(memosMap, newValue),
+          () => runEffects(effectSet, newValue),
+        ]);
+      } else {
+        updateMemos(memosMap, newValue);
+        runEffects(effectSet, newValue);
+      }
+      return value;
     };
-    return [get, set, observers];
+
+    return [get, set];
   }
-  //---------------------------
+  // --------------------------------------------------------------------------------
   function createEffect(fn) {
-    currentEffect = fn;
+    setCurrentEffect(fn);
+    // Call the function after setting the currentEffect
+    // so the signals inside fn can access it
     const result = fn();
-    currentEffect = undefined;
+    // Clear current effect
+    setCurrentEffect();
     return result;
   }
   //---------------------------
-  return { createSignal, createEffect, createMemo };
-}
-const { createSignal, createEffect, createMemo, t, n, render } = init();
+  return { batch, createSignal, createEffect, createMemo };
+};
+
+const { batch, createSignal, createEffect, createMemo } = init();
 
 const [a, setA] = createSignal(0);
 const [b, setB] = createSignal(100);
@@ -88,13 +119,20 @@ let aa = createMemo(() => {
   console.log("MEMO RAN");
   return a() + b();
 });
+const updateNumbers = () => {
+  console.log("IN UPDATENUMBERS");
+  batch(() => {
+    setA(a() + 1);
+    setB(b() + 1);
+  });
+};
 createEffect(() => {
+  console.log("CREATE EFFECT RAN");
   document.querySelector("button").innerText = `T-${aa()}`;
 });
 document.querySelector("button").addEventListener("click", () => {
+  updateNumbers();
   if (nr % 3 === 0) {
-    setA(a() + 1);
-    setB(b() + 1);
   }
   console.log("CLICK_______", aa());
   nr++;
