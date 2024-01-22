@@ -21,13 +21,22 @@ const init = () => {
       }
     });
   };
-  const runEffects = (effectSet, newValue) =>
-    effectSet.forEach((fn) => {
+  const runEffects = (effectsSet, newValue) =>
+    effectsSet.forEach((fn) => {
       if (fn(newValue)) {
-        effectSet.delete(fn);
+        effectsSet.delete(fn);
       }
     });
-
+  const addCurrentEffectToSet = (effectsSet) => {
+    if (currentEffect && !effectsSet.has(currentEffect)) {
+      effectsSet.add(currentEffect);
+    }
+  };
+  const addCurrentMemoToMap = (memosMap, value) => {
+    if (currentMemo && !memosMap.has(currentMemo)) {
+      memosMap.set(currentMemo, value);
+    }
+  };
   // --------------------------------------------------------------------------------
   function createMemo(getData) {
     let cachedData;
@@ -36,6 +45,7 @@ const init = () => {
     const setClearCache = (bool = true) => (shouldClearCache = bool);
 
     const getMemoizedData = () => {
+      console.log(currentBatch);
       if (shouldClearCache) {
         // Update the cached data and reset flag
         cachedData = getData();
@@ -58,39 +68,40 @@ const init = () => {
 
   // --------------------------------------------------------------------------------
   function batch(callback) {
-    setCurrentBatch(true);
+    setCurrentBatch({ memosMap: new Map(), effectsSet: new Set() });
     callback();
-    currentBatch.forEach((fn) => fn());
+    currentBatch.effectsSet.forEach((effect) => {
+      runEffects(effect);
+    });
+    currentBatch.memosMap.forEach((memo) => {
+      updateMemos();
+    });
     setCurrentBatch();
   }
   // --------------------------------------------------------------------------------
   function createSignal(initialValue = undefined) {
     let value = initialValue;
-    const effectSet = new Set();
+    const effectsSet = new Set();
     const memosMap = new Map();
 
     const get = () => {
-      if (currentEffect && !effectSet.has(currentEffect)) {
-        effectSet.add(currentEffect);
+      if (currentBatch) {
+        addCurrentEffectToSet(currentBatch.effectsSet);
+        addCurrentMemoToMap(currentBatch.memosMap, value);
       }
-      if (currentMemo && !memosMap.has(currentMemo)) {
-        memosMap.set(currentMemo, value);
-      }
+      addCurrentEffectToSet(effectsSet);
+      addCurrentMemoToMap(memosMap, value);
       return value;
     };
 
     const set = (newValue) => {
       value = newValue;
-
       if (currentBatch) {
-        setCurrentBatch([
-          () => updateMemos(memosMap, newValue),
-          () => runEffects(effectSet, newValue),
-        ]);
-      } else {
-        updateMemos(memosMap, newValue);
-        runEffects(effectSet, newValue);
+        addCurrentEffectToSet(currentBatch.effectsSet);
+        addCurrentMemoToMap(currentBatch.memosMap, value);
       }
+      updateMemos(memosMap, value);
+      runEffects(effectsSet, value);
       return value;
     };
 
@@ -114,16 +125,18 @@ const { batch, createSignal, createEffect, createMemo } = init();
 
 const [a, setA] = createSignal(0);
 const [b, setB] = createSignal(100);
+const [c, setC] = createSignal(1000);
 let nr = 0;
 let aa = createMemo(() => {
   console.log("MEMO RAN");
-  return a() + b();
+  return a() + b() + c();
 });
 const updateNumbers = () => {
   console.log("IN UPDATENUMBERS");
   batch(() => {
     setA(a() + 1);
     setB(b() + 1);
+    setC(c() + 1);
   });
 };
 createEffect(() => {
@@ -131,9 +144,10 @@ createEffect(() => {
   document.querySelector("button").innerText = `T-${aa()}`;
 });
 document.querySelector("button").addEventListener("click", () => {
-  updateNumbers();
   if (nr % 3 === 0) {
   }
+  updateNumbers();
+  console.log(a(), b(), c());
   console.log("CLICK_______", aa());
   nr++;
   console.log(nr);
