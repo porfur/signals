@@ -7,12 +7,12 @@ const init = () => {
   // as a function or identifier or both before being cleared
   let currentEffect;
   let currentMemo;
-  let currentBatch;
+  let currentBatchId;
 
   // Global functions used to set global variables
   const setCurrentMemo = (value) => (currentMemo = value);
   const setCurrentEffect = (value) => (currentEffect = value);
-  const setCurrentBatch = (value) => (currentBatch = value);
+  const setCurrentBatch = (value) => (currentBatchId = value);
   const updateMemos = (memosMap, newValue) => {
     memosMap.forEach((cachedValue, clearCache) => {
       if (cachedValue !== newValue) {
@@ -45,7 +45,7 @@ const init = () => {
     const setClearCache = (bool = true) => (shouldClearCache = bool);
 
     const getMemoizedData = () => {
-      console.log(currentBatch);
+      console.log(currentBatchId);
       if (shouldClearCache) {
         // Update the cached data and reset flag
         cachedData = getData();
@@ -68,38 +68,36 @@ const init = () => {
 
   // --------------------------------------------------------------------------------
   function batch(callback) {
-    setCurrentBatch({ memosMap: new Map(), effectsSet: new Set() });
+    setCurrentBatch(Symbol("batch"));
     callback();
-    currentBatch.effectsSet.forEach((effect) => {
-      runEffects(effect);
-    });
-    currentBatch.memosMap.forEach((memo) => {
-      updateMemos();
-    });
     setCurrentBatch();
   }
   // --------------------------------------------------------------------------------
+
   function createSignal(initialValue = undefined) {
     let value = initialValue;
     const effectsSet = new Set();
     const memosMap = new Map();
+    const signalId = Symbol(`signal-${initialValue}`);
 
     const get = () => {
-      if (currentBatch) {
-        addCurrentEffectToSet(currentBatch.effectsSet);
-        addCurrentMemoToMap(currentBatch.memosMap, value);
+      // addCurrentEffectToSet(effectsSet);
+      // addCurrentMemoToMap(memosMap, value);
+      if (currentEffect && !effectsSet.has(currentEffect)) {
+        effectsSet.add(currentEffect);
       }
-      addCurrentEffectToSet(effectsSet);
-      addCurrentMemoToMap(memosMap, value);
+      if (currentMemo && !memosMap.has(currentMemo)) {
+        memosMap.set(currentMemo, value);
+      }
       return value;
     };
 
     const set = (newValue) => {
       value = newValue;
-      if (currentBatch) {
-        addCurrentEffectToSet(currentBatch.effectsSet);
-        addCurrentMemoToMap(currentBatch.memosMap, value);
+
+      if (currentBatchId) {
       }
+      console.log("batchedSignals", batchedSignals);
       updateMemos(memosMap, value);
       runEffects(effectsSet, value);
       return value;
