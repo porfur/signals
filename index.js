@@ -8,11 +8,14 @@ const init = () => {
   let currentEffect;
   let currentMemo;
   let currentBatchId;
+  let exportBatchEffects;
 
   // Global functions used to set global variables
   const setCurrentMemo = (value) => (currentMemo = value);
   const setCurrentEffect = (value) => (currentEffect = value);
-  const setCurrentBatch = (value) => (currentBatchId = value);
+  const setCurrentBatchId = (value) => (currentBatchId = value);
+  const setExportBatchEffects = (value) => (exportBatchEffects = value);
+
   const updateMemos = (memosMap, newValue) => {
     memosMap.forEach((cachedValue, clearCache) => {
       if (cachedValue !== newValue) {
@@ -37,6 +40,22 @@ const init = () => {
       memosMap.set(currentMemo, value);
     }
   };
+  // --------------------------------------------------------------------------------
+  let batchNr = 0;
+  function batch(callback) {
+    const batchId = Symbol(`batch-${++batchNr}`);
+    const effects = { counter: 0, signals: new Map() };
+    setCurrentBatchId(batchId);
+    setExportBatchEffects((signalId, effectsSet) => {
+      effects.signals.set(signalId, effectsSet);
+      return effects;
+    });
+
+    callback();
+
+    setCurrentBatchId();
+    setExportBatchEffects();
+  }
   // --------------------------------------------------------------------------------
   function createMemo(getData) {
     let cachedData;
@@ -67,18 +86,13 @@ const init = () => {
   }
 
   // --------------------------------------------------------------------------------
-  function batch(callback) {
-    setCurrentBatch(Symbol("batch"));
-    callback();
-    setCurrentBatch();
-  }
-  // --------------------------------------------------------------------------------
 
   function createSignal(initialValue = undefined) {
     let value = initialValue;
     const effectsSet = new Set();
     const memosMap = new Map();
     const signalId = Symbol(`signal-${initialValue}`);
+    let batchedEffects = new Map();
 
     const get = () => {
       // addCurrentEffectToSet(effectsSet);
@@ -96,8 +110,12 @@ const init = () => {
       value = newValue;
 
       if (currentBatchId) {
+        batchedEffects.set(
+          currentBatchId,
+          exportBatchEffects(signalId, effectsSet),
+        )
       }
-      console.log("batchedSignals", batchedSignals);
+
       updateMemos(memosMap, value);
       runEffects(effectsSet, value);
       return value;
