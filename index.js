@@ -163,35 +163,4 @@ const init = () => {
   return { batch, createSignal, createEffect, createMemo };
 };
 
-const { batch, createSignal, createEffect, createMemo } = init();
-
-const [a, setA] = createSignal(0);
-const [b, setB] = createSignal(100);
-const [c, setC] = createSignal(1000);
-let nr = 0;
-let aa = createMemo(() => {
-  console.log("MEMO RAN");
-  return a() + b() + c();
-});
-const updateNumbers = () => {
-  console.log("IN UPDATENUMBERS", c());
-
-  // batch(() => {
-  setA(a() + 1);
-  setB(b() + 1);
-  setC(c() + 1);
-  // });
-};
-createEffect(() => {
-  console.log("CREATE EFFECT RAN");
-  document.querySelector("button").innerText = `T-${aa()}`;
-});
-document.querySelector("button").addEventListener("click", () => {
-  if (nr % 3 === 0) {
-    updateNumbers();
-    console.log(a(), b(), c());
-    console.log("CLICK_______", aa());
-  }
-  nr++;
-  console.log(nr);
-});
+export const { batch, createSignal, createEffect, createMemo } = init();
