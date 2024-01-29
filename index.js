@@ -1,6 +1,8 @@
 // Signal pattern inspired by SolidJS
-// Following the example of
+// Example for signals and effects found at
 // https://www.thisdot.co/blog/deep-dive-into-how-signals-work-in-solidjs
+// For createMemo and batch I used the SolidJS documentation to figure
+// out how and why they are usefull
 
 const init = () => {
   // ============================================================================
@@ -157,6 +159,7 @@ const init = () => {
     return [getter, setter];
   }
 
+  // ============================================================================
   return { batch, createSignal, createEffect, createMemo };
 };
 
