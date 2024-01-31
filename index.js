@@ -132,7 +132,7 @@ const init = () => {
 
   // (( Signal ))
   // Returns a [getterFn(),setterFn()] tuple used to set and store data.
-  function createSignal(initialValue = undefined) {
+  function createSignal(initialValue) {
     let value = initialValue;
     const effectsSet = new Set();
     const memosMap = new Map();
@@ -149,10 +149,12 @@ const init = () => {
     // the memoized values are updated (cache is cleared if the value changes).
     // If multiple setters are called inside a batch function then the effects of 
     // all those signals are batched together and duplicates are removed before being run
-    const setter = (newValue) => {
+    const setter = (newValue,alwaysRun = false) => {
+      if (value!==newValue||alwaysRun) {
       value = newValue;
       runEffects(effectsSet, currentBatchEffects);
       updateMemos(memosMap, value);
+      }
       return value;
     };
 
