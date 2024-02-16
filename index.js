@@ -4,7 +4,7 @@
 // For createMemo and batch I used the SolidJS documentation to figure
 // out how and why they are usefull
 
-const init = () => {
+function init() {
   // ============================================================================
   // [[ GLOBALS ]]
   //
@@ -14,6 +14,7 @@ const init = () => {
   let currentEffect; // The current effect callback
   let currentMemoClearFn; // The fn used to clear the current memo's cache
   let currentBatchEffects; //
+  let currentScopeEffectsCollector; //
 
   // (( Functions ))
   // Used to set global variables
@@ -58,12 +59,38 @@ const init = () => {
   };
 
   // ============================================================================
-
   // [[ REACTIVITY FUNCTIONS ]]
-
   //(( Cleanup ))
   //TO DO
+  //(( Scope ))
+  //TO DO Test and comment to remember how the hell this works
+  function createScope() {
+    let signalsAndEffects = new Map();
 
+    currentScopeEffectsCollector = (currentSignalEffectSet, currentEffect) => {
+      let scopedEffectsSet = new Set();
+      if (!signalsAndEffects.has(currentSignalEffectSet)) {
+        signalsAndEffects.set(currentSignalEffectSet, scopedEffectsSet);
+      }
+      scopedEffectsSet = signalsAndEffects.get(currentSignalEffectSet);
+      scopedEffectsSet.add(currentEffect);
+      currentScopeEffectsCollector = undefined;
+    };
+
+    function dispose() {
+      if (signalsAndEffects) {
+        signalsAndEffects.forEach((valScopedEffSet, keySignalEffSet) => {
+          valScopedEffSet.forEach((scopedEff) =>
+            keySignalEffSet.delete(scopedEff),
+          );
+        });
+        signalsAndEffects = undefined;
+        return true;
+      }
+    }
+
+    return dispose;
+  }
 
   // (( Batch ))
   // Defers the effects of all signals set in the callback
@@ -107,7 +134,7 @@ const init = () => {
       return cachedData;
     };
 
-    // Set global currentMemoClearFn to the shouldClearCache fn
+    // Set global currentMemoClearFn to the setShouldClearCache fn
     // That global function will be used by the signal to clear
     // the cache of this memo when the signal's value changes
     setCurrentMemoClearFn(setShouldClearCache);
@@ -125,6 +152,10 @@ const init = () => {
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
+    console.warn(
+      "Current effect is out of scope and can't be cleaned up. Wrap it in a createScope to avoid memory leaks",
+    );
+
     setCurrentEffect(fn);
     // Call the function after setting the currentEffect
     // so the signals inside fn can access it
@@ -150,18 +181,23 @@ const init = () => {
     const getter = () => {
       addCurrentEffectToSet(effectsSet);
       addCurrentMemoToMap(memosMap, value);
+
+      if (currentScopeEffectsCollector && currentEffect) {
+        currentScopeEffectsCollector(effectsSet, currentEffect);
+      }
+
       return value;
     };
 
     // When a setter is called the effects of the signal are ran and
     // the memoized values are updated (cache is cleared if the value changes).
-    // If multiple setters are called inside a batch function then the effects of 
+    // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
-    const setter = (newValue,alwaysRun = false) => {
-      if (value!==newValue||alwaysRun) {
-      value = newValue;
-      runEffects(effectsSet, currentBatchEffects);
-      updateMemos(memosMap, value);
+    const setter = (newValue, alwaysRun = false) => {
+      if (value !== newValue || alwaysRun) {
+        value = newValue;
+        runEffects(effectsSet, currentBatchEffects);
+        updateMemos(memosMap, value);
       }
       return value;
     };
@@ -170,7 +206,8 @@ const init = () => {
   }
 
   // ============================================================================
-  return { batch, createSignal, createEffect, createMemo };
-};
+  return { batch, createSignal, createEffect, createMemo, createScope };
+}
 
-export const { batch, createSignal, createEffect, createMemo } = init();
+export const { batch, createSignal, createEffect, createMemo, createScope } =
+  init();
