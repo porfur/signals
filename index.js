@@ -138,6 +138,10 @@ const init = () => {
   // Returns a [getterFn(),setterFn()] tuple used to set and store data.
   function createSignal(initialValue) {
     let value = initialValue;
+    // TODO The effects set might hold effects that are no longer needed.
+    // They should be removed.
+    // Maybe have effects be a map with symbol kets from each component that encapsulates the effect
+    // Explore making a createElement function that has a symbol to use as a key here
     const effectsSet = new Set();
     const memosMap = new Map();
 
