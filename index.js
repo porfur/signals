@@ -174,7 +174,7 @@ function init() {
     // Maybe have effects be a map with symbol kets from each component that encapsulates the effect
     // Explore making a createElement function that has a symbol to use as a key here
     const effectsSet = new Set();
-    const memosMap = new Map();
+    const memosMap = new Map(); //TODO Convert to Set
 
     // When the getter is called inside the callback of a createMemo or createEffect,
     // That callback is stored in the Map/Set of that signal
