@@ -24,13 +24,10 @@ function init() {
   const setCurrentBatchEffects = (value) => (currentBatchEffects = value);
 
   // Function used to update a signal's memoized values
-  const updateMemos = (memosMap, newValue) => {
-    // NOTE: The key of each memosMap if the fn used to clear it's cache
-    memosMap.forEach((cachedValue, clearCache) => {
-      if (cachedValue !== newValue) {
-        memosMap.set(clearCache, newValue);
-        clearCache();
-      }
+  const runClearMemoCacheFns = (memosSet) => {
+    memosSet.forEach((clearCache) => {
+      memosSet.set(clearCache, newValue);
+      clearCache();
     });
   };
 
@@ -51,10 +48,10 @@ function init() {
     }
   };
 
-  // Function to add the global  currentMemoClearFn to memos Map
-  const addCurrentMemoToMap = (memosMap, value) => {
-    if (currentMemoClearFn && !memosMap.has(currentMemoClearFn)) {
-      memosMap.set(currentMemoClearFn, value);
+  // Function to add the global  currentMemoClearFn to memos set
+  const addCurrentMemoToSet = (memosSet) => {
+    if (currentMemoClearFn) {
+      memosSet.set(currentMemoClearFn);
     }
   };
 
@@ -174,13 +171,13 @@ function init() {
     // Maybe have effects be a map with symbol kets from each component that encapsulates the effect
     // Explore making a createElement function that has a symbol to use as a key here
     const effectsSet = new Set();
-    const memosMap = new Map(); //TODO Convert to Set
+    const clearMemoCacheSet = new Set();
 
     // When the getter is called inside the callback of a createMemo or createEffect,
     // That callback is stored in the Map/Set of that signal
     const getter = () => {
       addCurrentEffectToSet(effectsSet);
-      addCurrentMemoToMap(memosMap, value);
+      addCurrentMemoToSet(clearMemoCacheSet, value);
 
       if (currentScopeEffectsCollector && currentEffect) {
         currentScopeEffectsCollector(effectsSet, currentEffect);
@@ -197,7 +194,7 @@ function init() {
       if (value !== newValue || alwaysRun) {
         value = newValue;
         runEffects(effectsSet, currentBatchEffects);
-        updateMemos(memosMap, value);
+        runClearMemoCacheFns(clearMemoCacheSet, value);
       }
       return value;
     };
