@@ -61,15 +61,16 @@ function init() {
   //TO DO
   //(( Scope ))
   //TO DO Test and comment to remember how the hell this works
-  function createScope() {
+  function createScope(fn) {
+fn()
     let signalsAndEffects = new Map();
 
-    currentScopeEffectsCollector = (currentSignalEffectSet, currentEffect) => {
+    currentScopeEffectsCollector = (currentSignalEffectsSet, currentEffect) => {
       let scopedEffectsSet = new Set();
-      if (!signalsAndEffects.has(currentSignalEffectSet)) {
-        signalsAndEffects.set(currentSignalEffectSet, scopedEffectsSet);
+      if (!signalsAndEffects.has(currentSignalEffectsSet)) {
+        signalsAndEffects.set(currentSignalEffectsSet, scopedEffectsSet);
       }
-      scopedEffectsSet = signalsAndEffects.get(currentSignalEffectSet);
+      scopedEffectsSet = signalsAndEffects.get(currentSignalEffectsSet);
       scopedEffectsSet.add(currentEffect);
       currentScopeEffectsCollector = undefined;
     };
