@@ -24,7 +24,7 @@ function init() {
   const setCurrentBatchEffects = (value) => (currentBatchEffects = value);
 
   // Function used to update a signal's memoized values
-  const runClearMemoCacheFns = (memosSet) => {
+  const clearMemoCaches = (memosSet) => {
     memosSet.forEach((clearCache) => {
       memosSet.set(clearCache, newValue);
       clearCache();
@@ -191,10 +191,12 @@ function init() {
     // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
     const setter = (newValue, alwaysRun = false) => {
-      if (value !== newValue || alwaysRun) {
+      if (value !== newValue) {
         value = newValue;
         runEffects(effectsSet, currentBatchEffects);
-        runClearMemoCacheFns(clearMemoCacheSet, value);
+        clearMemoCaches(clearMemoCacheSet, value);
+      }else if(alwaysRun){
+        runEffects(effectsSet, currentBatchEffects);
       }
       return value;
     };
