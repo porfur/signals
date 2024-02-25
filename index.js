@@ -62,7 +62,6 @@ function init() {
   //(( Scope ))
   //TO DO Test and comment to remember how the hell this works
   function createScope(fn) {
-fn()
     let signalsAndEffects = new Map();
 
     currentScopeEffectsCollector = (currentSignalEffectsSet, currentEffect) => {
@@ -75,6 +74,7 @@ fn()
       currentScopeEffectsCollector = undefined;
     };
 
+    fn();
     function dispose() {
       if (signalsAndEffects) {
         signalsAndEffects.forEach((valScopedEffSet, keySignalEffSet) => {
@@ -150,10 +150,12 @@ fn()
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
-    console.warn(
-      "Current effect is out of scope and can't be cleaned up. Wrap it in a createScope to avoid memory leaks",
-    );
-
+    if (!currentScopeEffectsCollector) {
+      console.warn(
+        "Current effect is out of scope and can't be cleaned up.",
+        "Wrap it in a createScope to avoid memory leaks",
+      );
+    }
     setCurrentEffect(fn);
     // Call the function after setting the currentEffect
     // so the signals inside fn can access it
@@ -196,7 +198,7 @@ fn()
         value = newValue;
         runEffects(effectsSet, currentBatchEffects);
         clearMemoCaches(clearMemoCacheSet, value);
-      }else if(alwaysRun){
+      } else if (alwaysRun) {
         runEffects(effectsSet, currentBatchEffects);
       }
       return value;
