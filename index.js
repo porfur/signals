@@ -75,14 +75,15 @@ function init() {
     };
 
     fn();
-    function dispose() {
-      if (signalsAndEffects) {
+    function dispose(fn) {
+      if (signalsAndEffects.size) {
         signalsAndEffects.forEach((valScopedEffSet, keySignalEffSet) => {
           valScopedEffSet.forEach((scopedEff) =>
             keySignalEffSet.delete(scopedEff),
           );
         });
         signalsAndEffects = undefined;
+        fn();
         return true;
       }
     }
