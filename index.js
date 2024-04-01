@@ -11,17 +11,14 @@ function init() {
   // (( Variables ))
   // These variables are set in the create functions and then used by the signals
   // as a function or identifier or both before being cleared
-  let currentEffect; // The current effect callback
-  let currentMemoClearFn; // The fn used to clear the current memo's cache
-  let currentBatchEffects; //
+  const [getEffect, setEffect] = createValue(); // The current effect callback
+  const [getClearMemoFn, setClearMemoFn] = createValue(); // The fn used to clear the current memo's cache
+  const [getBatchEffectsFn, setBatchEffectsFn] = createValue(); //
   let currentScopeEffectsCollector; //
 
   // (( Functions ))
   // Used to set global variables
   // No arguments sets them to undefined
-  const setCurrentMemoClearFn = (value) => (currentMemoClearFn = value);
-  const setCurrentEffect = (value) => (currentEffect = value);
-  const setCurrentBatchEffects = (value) => (currentBatchEffects = value);
 
   // Function used to update a signal's memoized values
   const clearMemoCaches = (memosSet) => {
@@ -29,30 +26,6 @@ function init() {
       memosSet.set(clearCache, newValue);
       clearCache();
     });
-  };
-
-  // Function used to run a signal's effects
-  // NOTE: Also removes effect if the effect returns true
-  const runEffects = (effectsSet, currentBatchEffects) => {
-    if (currentBatchEffects) {
-      currentBatchEffects(effectsSet);
-      return;
-    }
-    effectsSet.forEach((fn) => fn() && effectsSet.delete(fn));
-  };
-
-  // Function to add the global currentEffect to an effects Set
-  const addCurrentEffectToSet = (effectsSet) => {
-    if (currentEffect && !effectsSet.has(currentEffect)) {
-      effectsSet.add(currentEffect);
-    }
-  };
-
-  // Function to add the global  currentMemoClearFn to memos set
-  const addCurrentMemoToSet = (memosSet) => {
-    if (currentMemoClearFn) {
-      memosSet.set(currentMemoClearFn);
-    }
   };
 
   // ============================================================================
@@ -98,7 +71,7 @@ function init() {
     const allEffects = new Set();
     // Sets the currentBatchEffects variable to a function that when
     // used by a signal, it collects all it's effects removing duplicates
-    setCurrentBatchEffects((effectsSet) => {
+    setBatchEffectsFn((effectsSet) => {
       allEffects.add(...effectsSet);
     });
     // Runs the callback which in turn sets the signals
@@ -109,7 +82,7 @@ function init() {
     // Run the defered effects
     runEffects(allEffects);
     // Reset currentBatchEffects to undefined
-    setCurrentBatchEffects();
+    setBatchEffectsFn();
   }
 
   // (( Memoize Value ))
@@ -136,13 +109,13 @@ function init() {
     // Set global currentMemoClearFn to the setShouldClearCache fn
     // That global function will be used by the signal to clear
     // the cache of this memo when the signal's value changes
-    setCurrentMemoClearFn(setShouldClearCache);
+    setClearMemoFn(setShouldClearCache);
 
     //Cache the data for the first time and have the signals inside
     //get access to the global currentMemoClearFn
     cachedData = getDataCalback();
     // Reset global currentMemoClearFn to undefined
-    setCurrentMemoClearFn();
+    setClearMemoFn();
 
     return getMemoizedData;
   }
@@ -157,19 +130,19 @@ function init() {
         "Wrap it in a createScope to avoid memory leaks",
       );
     }
-    setCurrentEffect(fn);
+    setEffect(fn);
     // Call the function after setting the currentEffect
     // so the signals inside fn can access it
     const result = fn();
     // Clear current effect
-    setCurrentEffect();
+    setEffect();
     return result;
   }
 
   // (( Signal ))
   // Returns a [getterFn(),setterFn()] tuple used to set and store data.
   function createSignal(initialValue) {
-    let value = initialValue;
+    let signalValue = initialValue;
     // TODO The effects set might hold effects that are no longer needed.
     // They should be removed.
     // Maybe have effects be a map with symbol kets from each component that encapsulates the effect
@@ -180,14 +153,13 @@ function init() {
     // When the getter is called inside the callback of a createMemo or createEffect,
     // That callback is stored in the Map/Set of that signal
     const getter = () => {
-      addCurrentEffectToSet(effectsSet);
-      addCurrentMemoToSet(clearMemoCacheSet, value);
+      addToSet(effectsSet, getEffect());
+      addToSet(clearMemoCacheSet, getClearMemoFn());
 
-      if (currentScopeEffectsCollector && currentEffect) {
-        currentScopeEffectsCollector(effectsSet, currentEffect);
+      if (currentScopeEffectsCollector && effect) {
+        currentScopeEffectsCollector(effectsSet, effect);
       }
-
-      return value;
+      return signalValue;
     };
 
     // When a setter is called the effects of the signal are ran and
@@ -195,20 +167,47 @@ function init() {
     // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
     const setter = (newValue, alwaysRun = false) => {
-      if (value !== newValue) {
-        value = newValue;
-        runEffects(effectsSet, currentBatchEffects);
-        clearMemoCaches(clearMemoCacheSet, value);
+      if (signalValue !== newValue) {
+        signalValue = newValue;
+        runEffects(effectsSet, getBatchEffectsFn());
+        clearMemoCaches(clearMemoCacheSet, signalValue);
       } else if (alwaysRun) {
-        runEffects(effectsSet, currentBatchEffects);
+        runEffects(effectsSet, getBatchEffectsFn());
       }
-      return value;
+      return signalValue;
     };
 
     return [getter, setter];
   }
 
   // ============================================================================
+  // ============================================================================
+  // [[ HELPERS ]]
+
+  function createValue(val) {
+    let value = val;
+    const get = () => value;
+    const set = (newVal) => {
+      value = newVal;
+      return value;
+    };
+    return [get, set];
+  }
+
+  function addToSet(val, set) {
+    val && set.add(val);
+  }
+
+  // Function used to run a signal's effects
+  // NOTE: Also removes effect if the effect returns true
+  function runEffects(effectsSet, currentBatchEffects) {
+    if (currentBatchEffects) {
+      currentBatchEffects(effectsSet);
+      return;
+    }
+    effectsSet.forEach((fn) => fn() && effectsSet.delete(fn));
+  }
+
   return { batch, createSignal, createEffect, createMemo, createScope };
 }
 
