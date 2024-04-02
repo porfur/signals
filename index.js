@@ -16,6 +16,7 @@ function init() {
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
   const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
   const [getOnCleanupSet, setOnCleanupSet] = createValue();
+  const globalCleanupMap = new Map();
 
   // (( Functions ))
   // Used to set global variables
@@ -34,13 +35,14 @@ function init() {
   // Stores disposable effects in a set and deletes them when the
   // returend dispose fn is called.
   // Used to remove deprecaded effects from a signal
-  function createScope(scopeCallback) {
+  function createScope(callback) {
     // A map which holds the a signal's effectsSet as key
     // and a set of disposable effects as values
     let allEffectsMap = new Map();
 
     setScopeCollectorFn(scopeCollector);
-    scopeCallback();
+    callback();
+    handleAddFuncToGlobalCleanup(callback);
     setScopeCollectorFn();
     return dispose;
 
@@ -52,7 +54,6 @@ function init() {
       if (!allEffectsMap.has(signalsEffectsSet)) {
         allEffectsMap.set(signalsEffectsSet, new Set());
       }
-
       const disposableEffectsSet = allEffectsMap.get(signalsEffectsSet);
       disposableEffectsSet.add(currentDisposableEffect);
     }
@@ -66,6 +67,7 @@ function init() {
           );
         });
         allEffectsMap = undefined;
+        runCleanupsFor(callback)
         disposeCallback();
         return true;
       }
@@ -101,7 +103,7 @@ function init() {
   // Caches the data returned from the callback
   // Returns a getter function that returns the
   // cached data or the updated data if it changed
-  function createMemo(getDataCalback) {
+  function createMemo(callback) {
     let cachedData;
     let [shouldClearCache, setShouldClearCache] = createValue(true);
 
@@ -112,7 +114,8 @@ function init() {
 
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the globsl setClearMemoFn
-    cachedData = getDataCalback();
+    cachedData = callback();
+    handleAddFuncToGlobalCleanup(callback);
 
     // Reset global currentMemoClearFn to undefined
     setClearMemoFn();
@@ -120,8 +123,10 @@ function init() {
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
       if (shouldClearCache()) {
+        runCleanupsFor(callback);
         // Update the cached data and reset flag
-        cachedData = getDataCalback();
+        cachedData = callback();
+        handleAddFuncToGlobalCleanup(callback);
         setShouldClearCache(false);
       }
       return cachedData;
@@ -144,9 +149,9 @@ function init() {
     // Call the function after setting the currentEffect
     // so the signals inside fn can access it
     const result = fn();
+
     // Clear current effect
     setEffect();
-    setOnCleanupSet()
     return result;
   }
 
@@ -169,6 +174,7 @@ function init() {
 
       addToSet(effectsSet, currentEffect);
       addToSet(clearMemoCacheSet, getClearMemoFn());
+      handleAddFuncToGlobalCleanup(currentEffect);
 
       if (currentScopeCollectorFn) {
         currentScopeCollectorFn(effectsSet, currentEffect);
@@ -220,7 +226,17 @@ function init() {
       batchEffects(effectsSet);
       return;
     }
-    effectsSet.forEach((fn) => fn() && effectsSet.delete(fn));
+    effectsSet.forEach((fn) => {
+      runCleanupsFor(fn);
+      return fn() && effectsSet.delete(fn);
+    });
+  }
+
+  function runCleanupsFor(fn) {
+    if (globalCleanupMap.has(fn)) {
+      globalCleanupMap.get().forEach((cleanup) => cleanup());
+      globalCleanupMap.delete(fn);
+    }
   }
 
   // Function used to update a signal's memoized values
@@ -228,12 +244,16 @@ function init() {
     memosSet.forEach((clearCache) => clearCache());
   }
 
-  function runOnCleanup() {
+  function handleAddFuncToGlobalCleanup(fn) {
     const currentOnCleanUpSet = getOnCleanupSet();
-    if (currentOnCleanUpSet) {
-      currentOnCleanUpSet.forEach((fn) => fn);
-      setOnCleanupSet();
+    if (!currentOnCleanUpSet) return;
+    if (!globalCleanupMap.has(fn)) {
+      globalCleanupMap.set(fn, currentOnCleanUpSet);
+    } else {
+      globalCleanupMap.get(fn).set(...currentOnCleanUpSet);
     }
+    // Clear current onCleanupSet
+    setOnCleanupSet();
   }
 
   return { batch, createSignal, createEffect, createMemo, createScope };
