@@ -146,6 +146,7 @@ function init() {
     const result = fn();
     // Clear current effect
     setEffect();
+    setOnCleanupSet()
     return result;
   }
 
@@ -161,7 +162,7 @@ function init() {
     const clearMemoCacheSet = new Set();
 
     // When the getter is called inside the callback of a createMemo or createEffect,
-    // That callback is stored in the Map/Set of that signal
+    // That callback is stored in the Set of that signal
     function getter() {
       const currentEffect = getEffect();
       const currentScopeCollectorFn = getScopeCollectorFn();
