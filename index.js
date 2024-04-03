@@ -110,7 +110,7 @@ function init() {
     // Set global clearMemoFn to the local shouldClearCache setter
     // That global function will be used by the signal to clear
     // the cache of this memo when the signal's value changes
-    setClearMemoFn(setShouldClearCache);
+    setClearMemoFn(() => setShouldClearCache(true));
 
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the globsl setClearMemoFn
@@ -188,9 +188,10 @@ function init() {
     // all those signals are batched together and duplicates are removed before being run
     const setter = (newValue, alwaysRun = false) => {
       if (signalValue !== newValue) {
+        //Order below matters first clear memos then update value and then run effects with new val
+        clearMemoForSet(clearMemoCacheSet);
         signalValue = newValue;
         runEffects(effectsSet);
-        clearMemoForSet(clearMemoCacheSet);
       } else if (alwaysRun) {
         runEffects(effectsSet);
       }
@@ -257,9 +258,9 @@ function init() {
   }
 
   return {
-    batch,
     createSignal,
     createEffect,
+    batch,
     createMemo,
     createScope,
     onCleanup,
@@ -267,9 +268,9 @@ function init() {
 }
 
 export const {
-  batch,
   createSignal,
   createEffect,
+  batch,
   createMemo,
   createScope,
   onCleanup,
