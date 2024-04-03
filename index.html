@@ -4,20 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title></title>
-    <script defer src="./test.js" type="module"></script>
+    <script defer src="./examples.js" type="module"></script>
     <script defer src="./index.js" type="module"></script>
   </head>
   <body>
     <h1>Test Reactivity</h1>
   <section id="createEffect">
-      <h2>Create effect<h2>
+      <h2>createEffect<h2>
     <button id="createEffect-button"></button>
   </section>
     <br>
   <section id="batch">
-      <h2>Batch<h2>
+      <h2>batch<h2>
     <button id="no-batch-button"></button>
     <button id="batch-button"></button>
+      <h2>createMemo<h2>
+    <button id="memo-button"></button>
+    <button id="no-memo-button"></button>
+          <div style="text-wrap:wrap" id="no-memo-text">Without createMemo </div>
+          <div id="memo-text">With createMemo</div>
   </section>
   </body>
 </html>
