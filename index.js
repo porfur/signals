@@ -67,7 +67,7 @@ function init() {
           );
         });
         allEffectsMap = undefined;
-        runCleanupsFor(callback)
+        runCleanupsFor(callback);
         disposeCallback();
         return true;
       }
@@ -139,7 +139,7 @@ function init() {
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
-    if (!currentScopeEffectsCollector()) {
+    if (!getScopeCollectorFn()) {
       console.warn(
         "Current effect is out of scope and can't be cleaned up.",
         "Wrap it in a createScope to avoid memory leaks",
@@ -214,7 +214,7 @@ function init() {
     return [get, set];
   }
 
-  function addToSet(val, set) {
+  function addToSet(set, val) {
     val && set.add(val);
   }
 
@@ -256,8 +256,21 @@ function init() {
     setOnCleanupSet();
   }
 
-  return { batch, createSignal, createEffect, createMemo, createScope };
+  return {
+    batch,
+    createSignal,
+    createEffect,
+    createMemo,
+    createScope,
+    onCleanup,
+  };
 }
 
-export const { batch, createSignal, createEffect, createMemo, createScope } =
-  init();
+export const {
+  batch,
+  createSignal,
+  createEffect,
+  createMemo,
+  createScope,
+  onCleanup,
+} = init();
