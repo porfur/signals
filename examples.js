@@ -1,5 +1,12 @@
 console.log("Test running");
-import { createSignal, createEffect, batch, createMemo } from "./index.js";
+import {
+  createSignal,
+  createEffect,
+  batch,
+  createMemo,
+  createScope,
+  onCleanup,
+} from "./index.js";
 
 // [[ CREATE EFFECT ]]
 // When signal getters are called inside a create effect callback
@@ -73,6 +80,7 @@ import { createSignal, createEffect, batch, createMemo } from "./index.js";
     setMemoCount(memoCount() + 1);
   });
 })();
+
 // ==============================================================================
 
 // [[ BATCH ]]
@@ -101,5 +109,63 @@ import { createSignal, createEffect, batch, createMemo } from "./index.js";
       setPositiveCount(positiveCount() + 1);
       setNegativeCount(negativeCount() - 1);
     });
+  });
+})();
+
+// ==============================================================================
+
+// [[ CREATE SCOPE ]]
+// Effects and Memoized values are stored in a signal.
+// Wraping the code in createScope alows the disposal of unused effects and memos
+(() => {
+  const scopeBtn = document.querySelector("#scope-button");
+  const noScopeBtn = document.querySelector("#no-scope-button");
+  const [count, setCount] = createSignal(0);
+
+  const dispose = createScope(() => {
+    const memo = createMemo(() => {
+      console.log("Count in Memo is now", count());
+      return count();
+    });
+    createEffect(() => {
+      console.log("Count in Effect is now:", count());
+      scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
+    });
+  });
+
+  scopeBtn.addEventListener("click", () => {
+    setCount(count() + 1);
+    console.log("Count on Click is:", count());
+  });
+
+  noScopeBtn.addEventListener("click", () => {
+    dispose(() => {
+      console.log("Effects in scope were now disposed");
+    });
+  });
+})();
+
+// [[ ON CLEANUP ]]
+(() => {
+  const cleanupBtn = document.querySelector("#cleanup-button");
+  const cleanupText = document.querySelector("#cleanup-text");
+  const [count, setCount] = createSignal(0);
+
+  createEffect(() => {
+    let increment = 0;
+    cleanupBtn.innerText = `${count()}`;
+    const interval = setInterval(() => {
+      cleanupText.innerText = `${(increment + count() )}`;
+      increment++
+    },1000);
+    onCleanup(() => {
+      console.log("ON CLEANUP RAN",{interval,count:count()});
+      
+      clearInterval(interval);
+    });
+  });
+
+  cleanupBtn.addEventListener("click", () => {
+    setCount(count() + 1);
   });
 })();
