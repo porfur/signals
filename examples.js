@@ -36,9 +36,8 @@ import {
   const [memoCount, setMemoCount] = createSignal(0);
 
   function countTo(nr, startNr = 0) {
-    console.log("Counting down", nr);
     if (startNr > nr) {
-      console.log(" ------ Counting done ");
+      console.log(" ------ Counting done");
       return nr;
     }
     return countTo(nr, startNr + 1);
@@ -145,27 +144,43 @@ import {
   });
 })();
 
-// [[ ON CLEANUP ]]
+// [[ ON CLEANUP - EFFECT ]]
 (() => {
   const cleanupBtn = document.querySelector("#cleanup-button");
   const cleanupText = document.querySelector("#cleanup-text");
-  const [count, setCount] = createSignal(0);
+  const [randomNr, setRandomNr] = createSignal(getRandomNr());
+  const [randomNr2, setRandomNr2] = createSignal(getRandomNr());
+
+  function getRandomNr() {
+    return Math.floor(Math.random() * 10);
+  }
 
   createEffect(() => {
+    cleanupBtn.innerText = `${randomNr()}`;
+
     let increment = 0;
-    cleanupBtn.innerText = `${count()}`;
+
     const interval = setInterval(() => {
-      cleanupText.innerText = `${(increment + count() )}`;
-      increment++
-    },1000);
+      cleanupText.innerText = `${increment} - ${randomNr()} - ${randomNr2()}`;
+      increment++;
+    }, 1000);
+
+    console.log("createEffect ran", randomNr(), randomNr2());
     onCleanup(() => {
-      console.log("ON CLEANUP RAN",{interval,count:count()});
-      
+      console.log("ON CLEANUP RAN");
+    });
+    onCleanup(() => {
+      console.log("ON CLEANUP 2 RAN");
       clearInterval(interval);
+      setRandomNr(0)
+      setRandomNr2(0)
     });
   });
 
   cleanupBtn.addEventListener("click", () => {
-    setCount(count() + 1);
+    batch(() => {
+      setRandomNr(getRandomNr());
+      setRandomNr2(getRandomNr());
+    });
   });
 })();

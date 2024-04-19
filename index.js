@@ -14,7 +14,7 @@ function init() {
   const [getEffect, setEffect] = createValue();
   const [getClearMemoFn, setClearMemoFn] = createValue();
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
-  const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
+  const [getScopeCollectorFn, setScopeCollectorFunc] = createValue();
   const [getOnCleanupSet, setOnCleanupSet] = createValue();
   const globalCleanupMap = new Map();
 
@@ -29,9 +29,10 @@ function init() {
   function onCleanup(callback) {
     const onCleanupSet = getOnCleanupSet() || new Set();
     onCleanupSet.add(callback);
-    console.log("in oncleanp", onCleanupSet);
     setOnCleanupSet(onCleanupSet);
   }
+
+  // ---------------------------------------------------------------------
 
   //(( Scope ))
   // Stores disposable effects in a set and deletes them when the
@@ -43,12 +44,11 @@ function init() {
     let allEffectsMap = new Map();
     let allClearMemosMap = new Map();
 
-    setScopeCollectorFn(scopeCollector);
+    setScopeCollectorFunc(scopeCollector);
     callback();
     addFuncToGlobalCleanup(callback);
-    setScopeCollectorFn();
+    setScopeCollectorFunc();
     return dispose;
-
     // Get a signal's effectsSet and the current effect
     // and add them to the allEffectsMap
     function scopeCollector({
@@ -67,22 +67,28 @@ function init() {
 
     // Removes all disposable effects from the signalsEffects
     function dispose(disposeCallback) {
+      runOnCleanupsFor(callback);
       disposeFnFromGlobalCleanup(callback);
       disposeFromScopeMap(allEffectsMap);
       disposeFromScopeMap(allClearMemosMap);
       disposeCallback();
-      runOnCleanupsFor(callback);
       allEffectsMap = undefined;
+      allClearMemosMap = undefined;
+
       return true;
     }
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Batch ))
   // Defers the effects of all signals set in the callback
   // and removes duplicates before running them
   function batch(callback) {
     const allEffects = new Set();
-    const uniteEffects = (effectsSet) => allEffects.add(...effectsSet);
+    function uniteEffects(effectsSet) {
+      return allEffects.add(...effectsSet);
+    }
 
     // Sets the global batchEffectsFn to a function
     // When used by a signal, it collects all it's effects here
@@ -102,6 +108,8 @@ function init() {
     setBatchEffectsFn();
   }
 
+  // ---------------------------------------------------------------------
+
   // (( Memoize Value ))
   // Caches the data returned from the callback
   // Returns a getter function that returns the
@@ -116,11 +124,10 @@ function init() {
     setClearMemoFn(() => setShouldClearCache(true));
 
     //Cache the data for the first time and have the signals inside
-    //get access to the setShouldClearCache function via the globsl setClearMemoFn
+    //get access to the setShouldClearCache function via the global setClearMemoFn
     cachedData = callback();
-    addFuncToGlobalCleanup(callback);
 
-    // Reset global currentMemoClearFn to undefined
+    // Reset global getClearMemoFn() to undefined
     setClearMemoFn();
 
     // Getter function that returns cachedData or updated data
@@ -137,6 +144,8 @@ function init() {
 
     return getMemoizedData;
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Effect ))
   // Sets the global currentEffect variable to it's callback
@@ -158,6 +167,8 @@ function init() {
     return result;
   }
 
+  // ---------------------------------------------------------------------
+
   // (( Signal ))
   // Returns a [getterFn(),setterFn()] tuple used to set and store data.
   function createSignal(initialValue) {
@@ -171,7 +182,7 @@ function init() {
 
     // When the getter is called inside the callback of a createMemo or createEffect,
     // That callback is stored in the Set of that signal
-    function getter() {
+    function getSignal() {
       const currentEffect = getEffect();
       const currentScopeCollectorFn = getScopeCollectorFn();
       const currentClearMemo = getClearMemoFn();
@@ -195,19 +206,19 @@ function init() {
     // the memoized values are updated (cache is cleared if the value changes).
     // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
-    const setter = (newValue, alwaysRun = false) => {
-      if (signalValue !== newValue) {
-        //Order below matters first clear memos then update value and then run effects with new val
-        clearMemoForSet(clearMemosSet);
-        signalValue = newValue;
+    const setSignal = (newValue, alwaysRun = false) => {
+      if (alwaysRun) {
         runEffects(effectsSet);
-      } else if (alwaysRun) {
-        runEffects(effectsSet);
+        return signalValue;
       }
+      //Order below matters
+      clearMemoForSet(clearMemosSet); // clear memos
+      signalValue = newValue; // update value
+      runEffects(effectsSet); // run effects with new val
       return signalValue;
     };
 
-    return [getter, setter];
+    return [getSignal, setSignal];
   }
 
   // ============================================================================
@@ -237,20 +248,19 @@ function init() {
       return;
     }
     effectsSet.forEach((fn) => {
+      if (fn()) {
+        effectsSet.delete(fn);
+      }
+      addFuncToGlobalCleanup(fn);
       runOnCleanupsFor(fn);
-      return fn() && effectsSet.delete(fn);
     });
   }
 
-  function runOnCleanupsFor(fn) {
-    console.log('in run cleanups',fn,globalCleanupMap.has(fn))
-    console.log('in run cleanups',globalCleanupMap)
-
-
-    if (globalCleanupMap.has(fn)) {
-      console.log(fn);
-      globalCleanupMap.get().forEach((cleanup) => cleanup());
-      globalCleanupMap.delete(fn);
+  function runOnCleanupsFor(callback) {
+    if (globalCleanupMap.has(callback)) {
+      const onCleanupSetForCallback = globalCleanupMap.get(callback);
+      onCleanupSetForCallback.forEach((cleanup) => cleanup());
+      globalCleanupMap.delete(callback);
     }
   }
 
@@ -259,17 +269,15 @@ function init() {
     memosSet.forEach((clearCache) => clearCache());
   }
 
-  function addFuncToGlobalCleanup(fn) {
+  function addFuncToGlobalCleanup(callback) {
     const currentOnCleanUpSet = getOnCleanupSet();
-    console.log({currentOnCleanUpSet})
-    // Clear current onCleanupSet
     setOnCleanupSet();
-    if (!currentOnCleanUpSet || !fn) return;
-    if (!globalCleanupMap.has(fn)) {
-      globalCleanupMap.set(fn, currentOnCleanUpSet);
+    if (!currentOnCleanUpSet || !callback) return;
+    if (!globalCleanupMap.has(callback)) {
+      globalCleanupMap.set(callback, currentOnCleanUpSet);
       return;
     }
-    globalCleanupMap.get(fn).add(...currentOnCleanUpSet);
+    globalCleanupMap.get(callback).add(...currentOnCleanUpSet);
   }
 
   function addDisposableToScopeMap(scopeMap, keySet, currentFn) {
