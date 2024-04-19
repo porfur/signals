@@ -41,8 +41,8 @@ function init() {
   function createScope(callback) {
     // A map which holds a signal's effectsSet as key
     // and a set of disposable effects as values
-    let allEffectsMap = new Map();
-    let allClearMemosMap = new Map();
+    let allScopedEffectsMap = new Map();
+    let allScopedClearMemosMap = new Map();
 
     setScopeCollectorFunc(scopeCollector);
     callback();
@@ -57,9 +57,9 @@ function init() {
       clearMemosSet,
       currentClearMemo,
     }) {
-      addDisposableToScopeMap(allEffectsMap, effectsSet, currentEffect);
+      addDisposableToScopeMap(allScopedEffectsMap, effectsSet, currentEffect);
       addDisposableToScopeMap(
-        allClearMemosMap,
+        allScopedClearMemosMap,
         clearMemosSet,
         currentClearMemo,
       );
@@ -69,11 +69,11 @@ function init() {
     function dispose(disposeCallback) {
       runOnCleanupsFor(callback);
       disposeFnFromGlobalCleanup(callback);
-      disposeFromScopeMap(allEffectsMap);
-      disposeFromScopeMap(allClearMemosMap);
+      disposeFromScopeMap(allScopedEffectsMap);
+      disposeFromScopeMap(allScopedClearMemosMap);
       disposeCallback();
-      allEffectsMap = undefined;
-      allClearMemosMap = undefined;
+      allScopedEffectsMap = undefined;
+      allScopedClearMemosMap = undefined;
 
       return true;
     }
@@ -280,12 +280,12 @@ function init() {
     globalCleanupMap.get(callback).add(...currentOnCleanUpSet);
   }
 
-  function addDisposableToScopeMap(scopeMap, keySet, currentFn) {
+  function addDisposableToScopeMap(scopeMap, keyFnSet, currentFn) {
     if (!currentFn) return;
-    if (!scopeMap.has(keySet)) {
-      scopeMap.set(keySet, new Set());
+    if (!scopeMap.has(keyFnSet)) {
+      scopeMap.set(keyFnSet, new Set());
     }
-    const disposableSet = scopeMap.get(keySet);
+    const disposableSet = scopeMap.get(keyFnSet);
     disposableSet.add(currentFn);
   }
 
