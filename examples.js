@@ -1,4 +1,4 @@
-console.log("Test running");
+// console.log("Test running");
 import {
   createSignal,
   createEffect,
@@ -7,8 +7,8 @@ import {
   createScope,
   onCleanup,
 } from "./index.js";
-
-// [[ CREATE EFFECT ]]
+//
+// // [[ CREATE EFFECT ]]
 // When signal getters are called inside a create effect callback
 // that function is stored by the signal and it reruns whenever the
 // value is changed via the signal setter
@@ -23,10 +23,10 @@ import {
 
   button.addEventListener("click", () => setCount(count() + 1));
 })();
-
-// ==============================================================================
-
-// [[ CREATE MEMO ]]
+//
+// // ==============================================================================
+//
+// // [[ CREATE MEMO ]]
 (() => {
   const memobutton = document.querySelector("#memo-button");
   const nomemobutton = document.querySelector("#no-memo-button");
@@ -58,6 +58,11 @@ import {
   // With createMemo
   const memoizedCountDown = createMemo(() => {
     console.log("In CreateMemo");
+    if (memoCount() % 2) {
+      onCleanup(() => {
+        console.log("IN MEMO ON CLEANUP");
+      });
+    }
     return countTo(memoCount());
   });
 
@@ -79,10 +84,10 @@ import {
     setMemoCount(memoCount() + 1);
   });
 })();
-
-// ==============================================================================
-
-// [[ BATCH ]]
+//
+// // ==============================================================================
+//
+// // [[ BATCH ]]
 // When there are multiple signals in an effect, each of those signals
 // runs it's own copy of that effect. Wraping the setters in a batch
 // alows that effect to run only once
@@ -110,7 +115,7 @@ import {
     });
   });
 })();
-
+//
 // ==============================================================================
 
 // [[ CREATE SCOPE ]]
@@ -130,11 +135,10 @@ import {
       console.log("Count in Effect is now:", count());
       scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
     });
-  });
-
-  scopeBtn.addEventListener("click", () => {
-    setCount(count() + 1);
-    console.log("Count on Click is:", count());
+    scopeBtn.addEventListener("click", () => {
+      setCount(count() + 1);
+      console.log("Count on Click is:", count());
+    });
   });
 
   noScopeBtn.addEventListener("click", () => {
@@ -164,7 +168,6 @@ import {
       cleanupText.innerText = `${increment} - ${randomNr()} - ${randomNr2()}`;
       increment++;
     }, 1000);
-
     console.log("createEffect ran", randomNr(), randomNr2());
     onCleanup(() => {
       console.log("ON CLEANUP RAN");
@@ -172,8 +175,8 @@ import {
     onCleanup(() => {
       console.log("ON CLEANUP 2 RAN");
       clearInterval(interval);
-      setRandomNr(0)
-      setRandomNr2(0)
+      setRandomNr(0);
+      setRandomNr2(0);
     });
   });
 
@@ -182,5 +185,44 @@ import {
       setRandomNr(getRandomNr());
       setRandomNr2(getRandomNr());
     });
+  });
+})();
+
+// [[ ON CLEANUP - MEMO ]]
+(() => {
+  const incrementBtn = document.querySelector("#cleanup-all-button-increment");
+  const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
+  const [count, setCount] = createSignal(0);
+
+  function countTo(nr, startNr = 0) {
+    if (startNr > nr) {
+      console.log(" ------ Counting done");
+      return nr;
+    }
+    return countTo(nr, startNr + 1);
+  }
+
+  const dispose = createScope(() => {
+    const memoizedCountDown = createMemo(() => {
+      if (count() % 2) {
+        onCleanup(() => {
+          console.log("IN MEMO ON CLEANUP");
+        });
+      }
+      return countTo(count());
+    });
+
+    createEffect(() => {
+      incrementBtn.innerText = memoizedCountDown();
+    });
+  });
+
+  incrementBtn.addEventListener("click", () => {
+    setCount(count() + 1);
+  });
+
+  disposeBtn.addEventListener("click", () => {
+    console.log("DIspose clicked");
+    dispose(() => console.log("Dispose callback ran"));
   });
 })();

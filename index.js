@@ -102,7 +102,7 @@ function init() {
     callback();
 
     // Run the defered effects
-    runEffects(allEffects, true);
+    runEffects(allEffects, { skipBatch: true });
 
     // Reset currentBatchEffects to undefined
     setBatchEffectsFn();
@@ -132,6 +132,7 @@ function init() {
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
+debugger
       if (shouldClearCache()) {
         runOnCleanupsFor(callback);
         // Update the cached data and reset flag
@@ -241,7 +242,7 @@ function init() {
 
   // Function used to run a signal's effects
   // NOTE: Also removes effect if the effect returns true
-  function runEffects(effectsSet, skipBatch = false) {
+  function runEffects(effectsSet, { skipBatch = false } = {}) {
     const batchEffects = skipBatch ? null : getBatchEffectsFn();
     if (batchEffects) {
       batchEffects(effectsSet);
@@ -252,15 +253,19 @@ function init() {
         effectsSet.delete(fn);
       }
       addFuncToGlobalCleanup(fn);
-      runOnCleanupsFor(fn);
+      //Delete because effects rerun and readd the onCleanups
+      runOnCleanupsFor(fn, { deleteAfterRun: true });
     });
   }
 
-  function runOnCleanupsFor(callback) {
+  function runOnCleanupsFor(callback, { deleteAfterRun = false } = {}) {
+    console.log("deleteAfterRun");
     if (globalCleanupMap.has(callback)) {
       const onCleanupSetForCallback = globalCleanupMap.get(callback);
       onCleanupSetForCallback.forEach((cleanup) => cleanup());
-      globalCleanupMap.delete(callback);
+      if (deleteAfterRun) {
+        globalCleanupMap.delete(callback);
+      }
     }
   }
 
