@@ -30,6 +30,7 @@ function init() {
     const onCleanupSet = getOnCleanupSet() || new Set();
     onCleanupSet.add(callback);
     setOnCleanupSet(onCleanupSet);
+    console.log("here", onCleanupSet, "asdf>", getOnCleanupSet());
   }
 
   // ---------------------------------------------------------------------
@@ -132,12 +133,12 @@ function init() {
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
-debugger
       if (shouldClearCache()) {
-        runOnCleanupsFor(callback);
+        runOnCleanupsFor(callback, { deleteAfterRun:true });
         // Update the cached data and reset flag
         cachedData = callback();
         addFuncToGlobalCleanup(callback);
+        console.log("in getMemoizedData", globalCleanupMap);
         setShouldClearCache(false);
       }
       return cachedData;
@@ -259,7 +260,7 @@ debugger
   }
 
   function runOnCleanupsFor(callback, { deleteAfterRun = false } = {}) {
-    console.log("deleteAfterRun");
+    console.log("globalCleanupMap", globalCleanupMap);
     if (globalCleanupMap.has(callback)) {
       const onCleanupSetForCallback = globalCleanupMap.get(callback);
       onCleanupSetForCallback.forEach((cleanup) => cleanup());
@@ -276,8 +277,10 @@ debugger
 
   function addFuncToGlobalCleanup(callback) {
     const currentOnCleanUpSet = getOnCleanupSet();
-    setOnCleanupSet();
     if (!currentOnCleanUpSet || !callback) return;
+
+    setOnCleanupSet();
+    console.log({ callback, currentOnCleanUpSet });
     if (!globalCleanupMap.has(callback)) {
       globalCleanupMap.set(callback, currentOnCleanUpSet);
       return;
