@@ -172,15 +172,12 @@ import {
       console.log("ON CLEANUP  RAN");
       console.log('clean',{interval})
       clearInterval(interval);
-      // setRandomNr(0);
-      // setRandomNr2(0);
     })
     onCleanup(() => {console.log("ON CLEANUP 2")})
     return 
   });
 
   cleanupBtn.addEventListener("click", () => {
-    // debugger
     batch(() => {
       setRandomNr(getRandomNr());
       setRandomNr2(getRandomNr());
@@ -189,35 +186,35 @@ import {
 })();
 
 // [[ ON CLEANUP - MEMO ]]
-// (() => {
-//
-//   const incrementBtn = document.querySelector("#cleanup-all-button-increment");
-//   const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
-//   const [count, setCount] = createSignal(0);
-//
-//   function countTo(nr, startNr = 0) {
-//     if (startNr > nr) {
-//       console.log(" ------ Counting done");
-//       return nr;
-//     }
-//     return countTo(nr, startNr + 1);
-//   }
-//     const memoizedCountDown = createMemo(() => {
-//       // if (count() % 2) {
-//       // }
-//       return countTo(count());
-//     });
-//
-//     createEffect(() => {
-//       incrementBtn.innerText = memoizedCountDown();
-//     });
-//
-//   incrementBtn.addEventListener("click", () => {
-//     debugger
-//     setCount(count() + 1);
-//   });
-//
-//   disposeBtn.addEventListener("click", () => {
-//     console.log("DIspose clicked");
-//   });
-// })();
+(() => {
+
+  const incrementBtn = document.querySelector("#cleanup-all-button-increment");
+  const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
+  const [count, setCount] = createSignal(0);
+
+  function countTo(nr, startNr = 0) {
+    if (startNr > nr) {
+      console.log(" ------ Counting done");
+      return nr;
+    }
+    return countTo(nr, startNr + 1);
+  }
+    const memoizedCountDown = createMemo(() => {
+      if (! (count() % 5) ) {
+    onCleanup(() => {console.log('ON CLEANUP MEMO RAN')})
+      }
+      return countTo(count());
+    });
+
+    createEffect(() => {
+      incrementBtn.innerText = memoizedCountDown();
+    });
+
+  incrementBtn.addEventListener("click", () => {
+    setCount(count() + 1);
+  });
+
+  disposeBtn.addEventListener("click", () => {
+    console.log("DIspose clicked");
+  });
+})();

@@ -116,7 +116,7 @@ function init() {
   // Caches the data returned from the callback
   // Returns a getter function that returns the
   // cached data or the updated data if it changed
-  function createMemo(callback) {
+  function createMemo(fn) {
     let cachedData;
     let [getShouldClearCache, setShouldClearCache] = createValue(true);
 
@@ -127,7 +127,8 @@ function init() {
 
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the global setClearMemoFn
-    cachedData = callback();
+    cachedData = fn();
+    addFuncToGlobalCleanup(fn)
 
     // Reset global getClearMemoFn() to undefined
     setClearMemoFn();
@@ -135,9 +136,9 @@ function init() {
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
       if (getShouldClearCache()) {
-        runOnCleanupsFor(callback, { deleteAfterRun: false  });
+        runOnCleanupsFor(fn, { deleteAfterRun: true  });
         // Update the cached data and reset flag
-        cachedData = callback();
+        cachedData = fn();
         setShouldClearCache(false);
       }
       return cachedData;
