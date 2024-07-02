@@ -15,7 +15,8 @@ function init() {
   const [getClearMemoFn, setClearMemoFn] = createValue();
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
   const [getScopeCollectorFn, setScopeCollectorFunc] = createValue();
-  const [getOnCleanupSet, setOnCleanupSet] = createValue();
+  const [getOnCleanupMap, setOnCleanupMap] = createValue();
+  const [getOnCleanup, setOnCleanup] = createValue();
   const globalCleanupMap = new Map();
 
   // (( Functions ))
@@ -27,10 +28,12 @@ function init() {
   //(( Cleanup ))
   //TO DO
   function onCleanup(callback) {
-    const onCleanupSet = getOnCleanupSet() || new Set();
-    onCleanupSet.add(callback);
-    setOnCleanupSet(onCleanupSet);
-    console.log("here", onCleanupSet, "asdf>", getOnCleanupSet());
+    setOnCleanup(callback)
+    const callbackKey = callback.toString();
+    const onCleanupMap = getOnCleanupMap() || new Map();
+    onCleanupMap.set(callbackKey, callback);
+    setOnCleanupMap(onCleanupMap);
+    console.log("here", onCleanupMap, "asdf>", getOnCleanupMap());
   }
 
   // ---------------------------------------------------------------------
@@ -117,7 +120,7 @@ function init() {
   // cached data or the updated data if it changed
   function createMemo(callback) {
     let cachedData;
-    let [shouldClearCache, setShouldClearCache] = createValue(true);
+    let [getShouldClearCache, setShouldClearCache] = createValue(true);
 
     // Set global clearMemoFn to the local shouldClearCache setter
     // That global function will be used by the signal to clear
@@ -127,14 +130,15 @@ function init() {
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the global setClearMemoFn
     cachedData = callback();
+    // addFuncToGlobalCleanup(callback);
 
     // Reset global getClearMemoFn() to undefined
     setClearMemoFn();
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
-      if (shouldClearCache()) {
-        runOnCleanupsFor(callback, { deleteAfterRun:true });
+      if (getShouldClearCache()) {
+        runOnCleanupsFor(callback, { deleteAfterRun: false  });
         // Update the cached data and reset flag
         cachedData = callback();
         addFuncToGlobalCleanup(callback);
@@ -254,18 +258,19 @@ function init() {
         effectsSet.delete(fn);
       }
       addFuncToGlobalCleanup(fn);
-      //Delete because effects rerun and readd the onCleanups
-      runOnCleanupsFor(fn, { deleteAfterRun: true });
+      //Delete because effects rerun and re add the onCleanups
+      runOnCleanupsFor(fn, { deleteAfterRun: false });
     });
   }
 
   function runOnCleanupsFor(callback, { deleteAfterRun = false } = {}) {
+    const callbackKey=callback.toString()
     console.log("globalCleanupMap", globalCleanupMap);
-    if (globalCleanupMap.has(callback)) {
-      const onCleanupSetForCallback = globalCleanupMap.get(callback);
-      onCleanupSetForCallback.forEach((cleanup) => cleanup());
+    if (globalCleanupMap.has(callbackKey)) {
+      const onCleanupMapForCallback = globalCleanupMap.get(callbackKey);
+      onCleanupMapForCallback.forEach((cleanup) => cleanup());
       if (deleteAfterRun) {
-        globalCleanupMap.delete(callback);
+        globalCleanupMap.delete(callbackKey);
       }
     }
   }
@@ -276,16 +281,18 @@ function init() {
   }
 
   function addFuncToGlobalCleanup(callback) {
-    const currentOnCleanUpSet = getOnCleanupSet();
-    if (!currentOnCleanUpSet || !callback) return;
-
-    setOnCleanupSet();
-    console.log({ callback, currentOnCleanUpSet });
-    if (!globalCleanupMap.has(callback)) {
-      globalCleanupMap.set(callback, currentOnCleanUpSet);
+    const currentOnCleanUpMap = getOnCleanupMap();
+    if (!currentOnCleanUpMap || !callback) return;
+    const callbackKey = callback.toString()
+    setOnCleanupMap();
+    if (!globalCleanupMap.has(callbackKey)) {
+      globalCleanupMap.set(callbackKey, currentOnCleanUpMap);
       return;
     }
-    globalCleanupMap.get(callback).add(...currentOnCleanUpSet);
+    const currentOnCleanUpMapKey = getOnCleanup()
+    if (currentOnCleanUpMapKey) {
+    globalCleanupMap.get(callbackKey).set(currentOnCleanUpMapKey.toString(),currentOnCleanUpMap);
+    }
   }
 
   function addDisposableToScopeMap(scopeMap, keyFnSet, currentFn) {
