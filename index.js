@@ -128,15 +128,15 @@ function init() {
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the global setClearMemoFn
     cachedData = fn();
-    addFuncToGlobalCleanup(fn)
 
     // Reset global getClearMemoFn() to undefined
     setClearMemoFn();
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
+      // debugger
       if (getShouldClearCache()) {
-        runOnCleanupsFor(fn, { deleteAfterRun: true  });
+        runOnCleanupsFor(fn);
         // Update the cached data and reset flag
         cachedData = fn();
         setShouldClearCache(false);
@@ -255,20 +255,17 @@ function init() {
       }
       addFuncToGlobalCleanup(fn);
       //Delete because effects rerun and re add the onCleanups
-      runOnCleanupsFor(fn, { deleteAfterRun: true });
+      runOnCleanupsFor(fn);
     });
   }
 
-  function runOnCleanupsFor(callback, { deleteAfterRun = false } = {}) {
+  function runOnCleanupsFor(callback) {
     const callbackKey=callback.toString()
     if (globalCleanupMap.has(callbackKey)) {
       const onCleanupSetForCallback = globalCleanupMap.get(callbackKey);
       onCleanupSetForCallback.forEach((cleanup) => {
-// console.log(cleanup.toString())
         cleanup() });
-      if (deleteAfterRun) {
         globalCleanupMap.delete(callbackKey);
-      }
     }
   }
 
