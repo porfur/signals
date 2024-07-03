@@ -9,208 +9,310 @@ function init() {
   // [[ GLOBALS ]]
   //
   // (( Variables ))
-  // These variables are set in the create functions and then used by the signals
-  // as a function or identifier or both before being cleared
-  let currentEffect; // The current effect callback
-  let currentMemoClearFn; // The fn used to clear the current memo's cache
-  let currentBatchEffects; //
-  let currentScopeEffectsCollector; //
+  // Globals used by the REACTIVITY functions to pass around functions
+
+  const [getEffect, setEffect] = createValue();
+  const [getClearMemoFn, setClearMemoFn] = createValue();
+  const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
+  const [getScopeCollectorFn, setScopeCollectorFunc] = createValue();
+  const [getOnCleanupSet, setOnCleanupSet] = createValue();
+  const globalCleanupMap = new Map();
 
   // (( Functions ))
   // Used to set global variables
   // No arguments sets them to undefined
-  const setCurrentMemoClearFn = (value) => (currentMemoClearFn = value);
-  const setCurrentEffect = (value) => (currentEffect = value);
-  const setCurrentBatchEffects = (value) => (currentBatchEffects = value);
-
-  // Function used to update a signal's memoized values
-  const clearMemoCaches = (memosSet) => {
-    memosSet.forEach((clearCache) => {
-      memosSet.set(clearCache, newValue);
-      clearCache();
-    });
-  };
-
-  // Function used to run a signal's effects
-  // NOTE: Also removes effect if the effect returns true
-  const runEffects = (effectsSet, currentBatchEffects) => {
-    if (currentBatchEffects) {
-      currentBatchEffects(effectsSet);
-      return;
-    }
-    effectsSet.forEach((fn) => fn() && effectsSet.delete(fn));
-  };
-
-  // Function to add the global currentEffect to an effects Set
-  const addCurrentEffectToSet = (effectsSet) => {
-    if (currentEffect && !effectsSet.has(currentEffect)) {
-      effectsSet.add(currentEffect);
-    }
-  };
-
-  // Function to add the global  currentMemoClearFn to memos set
-  const addCurrentMemoToSet = (memosSet) => {
-    if (currentMemoClearFn) {
-      memosSet.set(currentMemoClearFn);
-    }
-  };
 
   // ============================================================================
   // [[ REACTIVITY FUNCTIONS ]]
   //(( Cleanup ))
   //TO DO
+  function onCleanup(callback) {
+    const onCleanupSet = getOnCleanupSet() || new Set();
+    onCleanupSet.add(callback);
+    setOnCleanupSet(onCleanupSet);
+  }
+
+  // ---------------------------------------------------------------------
+
   //(( Scope ))
-  //TO DO Test and comment to remember how the hell this works
-  function createScope(fn) {
-    let signalsAndEffects = new Map();
+  // Stores disposable effects in a set and deletes them when the
+  // returend dispose fn is called.
+  // Used to remove deprecaded effects from a signal
+  function createScope(callback) {
+    // A map which holds a signal's effectsSet as key
+    // and a set of disposable effects as values
+    let allScopedEffectsMap = new Map();
+    let allScopedClearMemosMap = new Map();
 
-    currentScopeEffectsCollector = (currentSignalEffectsSet, currentEffect) => {
-      let scopedEffectsSet = new Set();
-      if (!signalsAndEffects.has(currentSignalEffectsSet)) {
-        signalsAndEffects.set(currentSignalEffectsSet, scopedEffectsSet);
-      }
-      scopedEffectsSet = signalsAndEffects.get(currentSignalEffectsSet);
-      scopedEffectsSet.add(currentEffect);
-      currentScopeEffectsCollector = undefined;
-    };
-
-    fn();
-    function dispose(fn) {
-      if (signalsAndEffects.size) {
-        signalsAndEffects.forEach((valScopedEffSet, keySignalEffSet) => {
-          valScopedEffSet.forEach((scopedEff) =>
-            keySignalEffSet.delete(scopedEff),
-          );
-        });
-        signalsAndEffects = undefined;
-        fn();
-        return true;
-      }
+    setScopeCollectorFunc(scopeCollector);
+    callback();
+    setScopeCollectorFunc();
+    return dispose;
+    // Get a signal's effectsSet and the current effect
+    // and add them to the allEffectsMap
+    function scopeCollector({
+      effectsSet,
+      currentEffect,
+      clearMemosSet,
+      currentClearMemo,
+    }) {
+      addDisposableToScopeMap(allScopedEffectsMap, effectsSet, currentEffect);
+      addDisposableToScopeMap(
+        allScopedClearMemosMap,
+        clearMemosSet,
+        currentClearMemo,
+      );
     }
 
-    return dispose;
+    // Removes all disposable effects from the signalsEffects
+    function dispose(disposeCallback) {
+      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
+      disposeFromScopeMap(allScopedEffectsMap);
+      disposeFromScopeMap(allScopedClearMemosMap);
+      console.log('AFTER',callback)
+      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
+      disposeCallback && disposeCallback();
+      allScopedEffectsMap = undefined;
+      allScopedClearMemosMap = undefined;
+    }
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Batch ))
   // Defers the effects of all signals set in the callback
   // and removes duplicates before running them
   function batch(callback) {
     const allEffects = new Set();
-    // Sets the currentBatchEffects variable to a function that when
-    // used by a signal, it collects all it's effects removing duplicates
-    setCurrentBatchEffects((effectsSet) => {
-      allEffects.add(...effectsSet);
-    });
-    // Runs the callback which in turn sets the signals
-    // and populates the allEffects Set
+    function uniteEffects(effectsSet) {
+      if (effectsSet.size) {
+        allEffects.add(...effectsSet);
+      }
+      return allEffects;
+    }
+
+    // Sets the global batchEffectsFn to a function
+    // When used by a signal, it collects all it's effects here
+    setBatchEffectsFn(uniteEffects);
+
+    // When a signal setter is ran inside the callback
+    // It will pass it's effects to the uniteEffets
+    // function via the global getBatchEffectsFn()
     // NOTE: Inside the signal's setter the effects are deffer due to the
-    // currentBatchEffects being set to a function
+    // getBatchEffectsFn() being set to a function
     callback();
+
     // Run the defered effects
-    runEffects(allEffects);
+    runEffects(allEffects, { skipBatch: true });
+
     // Reset currentBatchEffects to undefined
-    setCurrentBatchEffects();
+    setBatchEffectsFn();
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Memoize Value ))
   // Caches the data returned from the callback
   // Returns a getter function that returns the
   // cached data or the updated data if it changed
-  function createMemo(getDataCalback) {
+  function createMemo(fn) {
     let cachedData;
-    let shouldClearCache = true;
-    // Setter function for the shouldClearCache flag
-    // Defaults to true
-    const setShouldClearCache = (bool = true) => (shouldClearCache = bool);
+    let [getShouldClearCache, setShouldClearCache] = createValue(true);
+
+    // Set global clearMemoFn to the local shouldClearCache setter
+    // That global function will be used by the signal to clear
+    // the cache of this memo when the signal's value changes
+    setClearMemoFn(() => setShouldClearCache(true));
+
+    //Cache the data for the first time and have the signals inside
+    //get access to the setShouldClearCache function via the global setClearMemoFn
+    cachedData = fn();
+
+    // Reset global getClearMemoFn() to undefined
+    setClearMemoFn();
 
     // Getter function that returns cachedData or updated data
-    const getMemoizedData = () => {
-      if (shouldClearCache) {
+    function getMemoizedData() {
+      // debugger
+      if (getShouldClearCache()) {
+        runOnCleanupsFor(fn);
         // Update the cached data and reset flag
-        cachedData = getDataCalback();
+        cachedData = fn();
         setShouldClearCache(false);
       }
       return cachedData;
-    };
-
-    // Set global currentMemoClearFn to the setShouldClearCache fn
-    // That global function will be used by the signal to clear
-    // the cache of this memo when the signal's value changes
-    setCurrentMemoClearFn(setShouldClearCache);
-
-    //Cache the data for the first time and have the signals inside
-    //get access to the global currentMemoClearFn
-    cachedData = getDataCalback();
-    // Reset global currentMemoClearFn to undefined
-    setCurrentMemoClearFn();
+    }
 
     return getMemoizedData;
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Effect ))
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
-    if (!currentScopeEffectsCollector) {
+    if (!getScopeCollectorFn()) {
       console.warn(
         "Current effect is out of scope and can't be cleaned up.",
         "Wrap it in a createScope to avoid memory leaks",
       );
     }
-    setCurrentEffect(fn);
+    setEffect(fn);
     // Call the function after setting the currentEffect
     // so the signals inside fn can access it
     const result = fn();
+
+    addFuncToGlobalCleanup(fn);
     // Clear current effect
-    setCurrentEffect();
+    setEffect();
     return result;
   }
+
+  // ---------------------------------------------------------------------
 
   // (( Signal ))
   // Returns a [getterFn(),setterFn()] tuple used to set and store data.
   function createSignal(initialValue) {
-    let value = initialValue;
+    let signalValue = initialValue;
     // TODO The effects set might hold effects that are no longer needed.
     // They should be removed.
     // Maybe have effects be a map with symbol kets from each component that encapsulates the effect
     // Explore making a createElement function that has a symbol to use as a key here
     const effectsSet = new Set();
-    const clearMemoCacheSet = new Set();
+    const clearMemosSet = new Set();
 
     // When the getter is called inside the callback of a createMemo or createEffect,
-    // That callback is stored in the Map/Set of that signal
-    const getter = () => {
-      addCurrentEffectToSet(effectsSet);
-      addCurrentMemoToSet(clearMemoCacheSet, value);
+    // That callback is stored in the Set of that signal
+    function getSignal() {
+      const currentEffect = getEffect();
+      const currentScopeCollectorFn = getScopeCollectorFn();
+      const currentClearMemo = getClearMemoFn();
 
-      if (currentScopeEffectsCollector && currentEffect) {
-        currentScopeEffectsCollector(effectsSet, currentEffect);
+      addToSet(effectsSet, currentEffect);
+      addToSet(clearMemosSet, currentClearMemo);
+
+      if (currentScopeCollectorFn) {
+        currentScopeCollectorFn({
+          effectsSet,
+          currentEffect,
+          clearMemosSet,
+          currentClearMemo,
+        });
       }
-
-      return value;
-    };
+      return signalValue;
+    }
 
     // When a setter is called the effects of the signal are ran and
     // the memoized values are updated (cache is cleared if the value changes).
     // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
-    const setter = (newValue, alwaysRun = false) => {
-      if (value !== newValue) {
-        value = newValue;
-        runEffects(effectsSet, currentBatchEffects);
-        clearMemoCaches(clearMemoCacheSet, value);
-      } else if (alwaysRun) {
-        runEffects(effectsSet, currentBatchEffects);
+    const setSignal = (newValue, alwaysRun = false) => {
+      if (alwaysRun) {
+        runEffects(effectsSet);
+        return signalValue;
       }
-      return value;
+      //Order below matters
+      clearMemoForSet(clearMemosSet); // clear memos
+      signalValue = newValue; // update value
+      runEffects(effectsSet); // run effects with new val
+      return signalValue;
     };
 
-    return [getter, setter];
+    return [getSignal, setSignal];
   }
 
   // ============================================================================
-  return { batch, createSignal, createEffect, createMemo, createScope };
+  // ============================================================================
+  // [[ HELPERS ]]
+
+  function createValue(val) {
+    let value = val;
+    const get = () => value;
+    const set = (newVal) => {
+      value = newVal;
+      return value;
+    };
+    return [get, set];
+  }
+
+  function addToSet(set, val) {
+    val && set.add(val);
+  }
+
+  // Function used to run a signal's effects
+  // NOTE: Also removes effect if the effect returns true
+  function runEffects(effectsSet, { skipBatch = false } = {}) {
+    const batchEffects = skipBatch ? null : getBatchEffectsFn();
+    if (batchEffects) {
+      batchEffects(effectsSet);
+      return;
+    }
+    effectsSet.forEach((fn) => {
+      if (fn()) {
+        effectsSet.delete(fn);
+      }
+      addFuncToGlobalCleanup(fn);
+      //Delete because effects rerun and re add the onCleanups
+      runOnCleanupsFor(fn);
+    });
+  }
+
+  function runOnCleanupsFor(callback) {
+    if (globalCleanupMap.has(callback)) {
+      const onCleanupSetForCallback = globalCleanupMap.get(callback);
+      onCleanupSetForCallback.forEach((cleanup) => cleanup());
+      globalCleanupMap.delete(callback);
+    }
+  }
+
+  // Function used to update a signal's memoized values
+  function clearMemoForSet(memosSet) {
+    memosSet.forEach((clearCache) => clearCache());
+  }
+
+  function addFuncToGlobalCleanup(callback) {
+    const currentOnCleanUpSet = getOnCleanupSet();
+    if (!currentOnCleanUpSet || !callback) return;
+    setOnCleanupSet();
+    if (!globalCleanupMap.has(callback)) {
+      globalCleanupMap.set(callback, currentOnCleanUpSet);
+    }
+  }
+
+  function addDisposableToScopeMap(scopeMap, keyFnSet, currentFn) {
+    if (!currentFn) return;
+    if (!scopeMap.has(keyFnSet)) {
+      scopeMap.set(keyFnSet, new Set());
+    }
+    const disposableSet = scopeMap.get(keyFnSet);
+    disposableSet.add(currentFn);
+  }
+
+  function disposeFromScopeMap(scopeMap) {
+    if (!scopeMap) return;
+    scopeMap.forEach((disposableSet, keySet) => {
+      disposableSet.forEach((disposableEffect) =>
+        keySet.delete(disposableEffect),
+      );
+    });
+  }
+
+  return {
+    createSignal,
+    createEffect,
+    batch,
+    createMemo,
+    createScope,
+    onCleanup,
+  };
 }
 
-export const { batch, createSignal, createEffect, createMemo, createScope } =
-  init();
+export const {
+  createSignal,
+  createEffect,
+  batch,
+  createMemo,
+  createScope,
+  onCleanup,
+} = init();

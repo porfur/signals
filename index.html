@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <script defer src="./examples.js" type="module"></script>
+    <script defer src="./index.js" type="module"></script>
+    <style>
+    section{
+      border :1px solid grey; 
+      padding:1rem;
+      margin:1rem; 
+    }
+    </style>
+  </head>
+  <body>
+    <h1>Test Reactivity</h1>
+    <p>Open the console and click the buttons to see how it works.</p>
+    <section id="createEffect">
+      <h2>createEffect<h2>
+        <button id="createEffect-button"></button>
+    </section>
+    <section id="batch">
+      <h2>batch<h2>
+        <button id="no-batch-button"></button>
+        <button id="batch-button"></button>
+    </section>
+    <section>
+      <h2>createMemo</h2>
+      <br>
+      <p style=''>Without memo counter button will log
+        <br><span style="color:red"> ------ Counting done </span>
+        multiple times</p>
+      <button id="memo-button"></button>
+      <button id="no-memo-button"></button>
+      <h3 style="text-wrap:wrap" id="no-memo-text">Without createMemo </h3>
+      <h3 id="memo-text">With createMemo</h3>
+    </section>
+<section>
+       <h2>createScope<h2>
+    <button id="scope-button"></button>
+    <button id="no-scope-button">Dispose of Scope</button>
+</section>
+    <section>
+      <h2>onCleanup Effect<h2>
+        <button id="cleanup-button"></button>
+        <p id="cleanup-text"></p>
+        <br>
+    </section>
+    <section>
+      <h2>onCleanup memo<h2>
+        <button id="cleanup-all-button-increment"></button>
+        <button id="cleanup-all-button-dispose">Dispose</button>
+        <p id="cleanup-all-text"></p>
+        <br>
+    </section>
+ 
+  </body>
+</html>
