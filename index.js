@@ -260,12 +260,10 @@ function init() {
   }
 
   function runOnCleanupsFor(callback) {
-    const callbackKey=callback.toString()
-    if (globalCleanupMap.has(callbackKey)) {
-      const onCleanupSetForCallback = globalCleanupMap.get(callbackKey);
-      onCleanupSetForCallback.forEach((cleanup) => {
-        cleanup() });
-        globalCleanupMap.delete(callbackKey);
+    if (globalCleanupMap.has(callback)) {
+      const onCleanupSetForCallback = globalCleanupMap.get(callback);
+      onCleanupSetForCallback.forEach((cleanup) => cleanup());
+        globalCleanupMap.delete(callback);
     }
   }
 
@@ -277,11 +275,9 @@ function init() {
   function addFuncToGlobalCleanup(callback) {
     const currentOnCleanUpSet = getOnCleanupSet();
     if (!currentOnCleanUpSet || !callback) return;
-    const callbackKey = callback.toString()
     setOnCleanupSet();
-    if (!globalCleanupMap.has(callbackKey)) {
-      globalCleanupMap.set(callbackKey, currentOnCleanUpSet);
-      return;
+    if (!globalCleanupMap.has(callback)) {
+      globalCleanupMap.set(callback, currentOnCleanUpSet);
     }
   }
 
