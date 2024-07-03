@@ -5,7 +5,7 @@ import {
   batch,
   createMemo,
   createScope,
-  onCleanup
+  onCleanup,
 } from "./index.js";
 //
 // // [[ CREATE EFFECT ]]
@@ -151,7 +151,7 @@ import {
   const cleanupText = document.querySelector("#cleanup-text");
   const [randomNr, setRandomNr] = createSignal(getRandomNr());
   const [randomNr2, setRandomNr2] = createSignal(getRandomNr());
-  const [isIntervalOn, setIsIntervalOn]=createSignal(false)
+  const [isIntervalOn, setIsIntervalOn] = createSignal(false);
 
   function getRandomNr() {
     return Math.floor(Math.random() * 10);
@@ -166,15 +166,17 @@ import {
       cleanupText.innerText = `${increment} - ${randomNr()} - ${randomNr2()}`;
       increment++;
     }, 1000);
-    console.log("effect",interval);
+    console.log("effect", interval);
 
     onCleanup(() => {
       console.log("ON CLEANUP  RAN");
-      console.log('clean',{interval})
+      console.log("clean", { interval });
       clearInterval(interval);
-    })
-    onCleanup(() => {console.log("ON CLEANUP 2")})
-    return 
+    });
+    onCleanup(() => {
+      console.log("ON CLEANUP 2");
+    });
+    return;
   });
 
   cleanupBtn.addEventListener("click", () => {
@@ -187,21 +189,23 @@ import {
 
 // [[ ON CLEANUP - MEMO ]]
 (() => {
-
   const incrementBtn = document.querySelector("#cleanup-all-button-increment");
   const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
   const [count, setCount] = createSignal(0);
 
-  function countTo(nr, startNr = 0) {
-    if (startNr > nr) {
-      console.log(" ------ Counting done");
-      return nr;
+  const dispose = createScope(() => {
+    function countTo(nr, startNr = 0) {
+      if (startNr > nr) {
+        console.log(" ------ Counting done");
+        return nr;
+      }
+      return countTo(nr, startNr + 1);
     }
-    return countTo(nr, startNr + 1);
-  }
     const memoizedCountDown = createMemo(() => {
-      if (! (count() % 5) ) {
-    onCleanup(() => {console.log('ON CLEANUP MEMO RAN')})
+      if (!(count() % 5)) {
+        onCleanup(() => {
+          console.log("ON CLEANUP MEMO RAN");
+        });
       }
       return countTo(count());
     });
@@ -210,11 +214,13 @@ import {
       incrementBtn.innerText = memoizedCountDown();
     });
 
-  incrementBtn.addEventListener("click", () => {
-    setCount(count() + 1);
+    incrementBtn.addEventListener("click", () => {
+      setCount(count() + 1);
+    });
   });
-
   disposeBtn.addEventListener("click", () => {
-    console.log("DIspose clicked");
+    dispose(() => {
+      console.log("DIspose clicked");
+    });
   });
 })();

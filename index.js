@@ -66,15 +66,14 @@ function init() {
 
     // Removes all disposable effects from the signalsEffects
     function dispose(disposeCallback) {
-      runOnCleanupsFor(callback);
-      disposeFnFromGlobalCleanup(callback);
+      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
       disposeFromScopeMap(allScopedEffectsMap);
       disposeFromScopeMap(allScopedClearMemosMap);
-      disposeCallback();
+      console.log('AFTER',callback)
+      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
+      disposeCallback && disposeCallback();
       allScopedEffectsMap = undefined;
       allScopedClearMemosMap = undefined;
-
-      return true;
     }
   }
 
@@ -89,7 +88,7 @@ function init() {
       if (effectsSet.size) {
         allEffects.add(...effectsSet);
       }
-      return allEffects
+      return allEffects;
     }
 
     // Sets the global batchEffectsFn to a function
@@ -164,7 +163,7 @@ function init() {
     // so the signals inside fn can access it
     const result = fn();
 
-    addFuncToGlobalCleanup(fn)
+    addFuncToGlobalCleanup(fn);
     // Clear current effect
     setEffect();
     return result;
@@ -263,7 +262,7 @@ function init() {
     if (globalCleanupMap.has(callback)) {
       const onCleanupSetForCallback = globalCleanupMap.get(callback);
       onCleanupSetForCallback.forEach((cleanup) => cleanup());
-        globalCleanupMap.delete(callback);
+      globalCleanupMap.delete(callback);
     }
   }
 
@@ -297,10 +296,6 @@ function init() {
         keySet.delete(disposableEffect),
       );
     });
-  }
-
-  function disposeFnFromGlobalCleanup(fn) {
-    globalCleanupMap.delete(fn);
   }
 
   return {
