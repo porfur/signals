@@ -66,11 +66,15 @@ function init() {
 
     // Removes all disposable effects from the signalsEffects
     function dispose(disposeCallback) {
-      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
+      allScopedEffectsMap.forEach((v, k) => {
+        console.log({ v, k });
+      });
       disposeFromScopeMap(allScopedEffectsMap);
       disposeFromScopeMap(allScopedClearMemosMap);
-      console.log('AFTER',callback)
-      allScopedEffectsMap.forEach((v,k) => {console.log({v,k})})
+      console.log("AFTER", callback);
+      allScopedEffectsMap.forEach((v, k) => {
+        console.log({ v, k });
+      });
       disposeCallback && disposeCallback();
       allScopedEffectsMap = undefined;
       allScopedClearMemosMap = undefined;
@@ -103,7 +107,7 @@ function init() {
     callback();
 
     // Run the defered effects
-    runEffects(allEffects, { skipBatch: true });
+    runEffects(allEffects, true);
 
     // Reset currentBatchEffects to undefined
     setBatchEffectsFn();
@@ -242,7 +246,7 @@ function init() {
 
   // Function used to run a signal's effects
   // NOTE: Also removes effect if the effect returns true
-  function runEffects(effectsSet, { skipBatch = false } = {}) {
+  function runEffects(effectsSet, skipBatch = false ) {
     const batchEffects = skipBatch ? null : getBatchEffectsFn();
     if (batchEffects) {
       batchEffects(effectsSet);
@@ -304,7 +308,7 @@ function init() {
     batch,
     createMemo,
     createScope,
-    onCleanup,
+    onCleanup
   };
 }
 
