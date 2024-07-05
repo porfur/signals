@@ -66,15 +66,8 @@ function init() {
 
     // Removes all disposable effects from the signalsEffects
     function dispose(disposeCallback) {
-      allScopedEffectsMap.forEach((v, k) => {
-        console.log({ v, k });
-      });
       disposeFromScopeMap(allScopedEffectsMap);
       disposeFromScopeMap(allScopedClearMemosMap);
-      console.log("AFTER", callback);
-      allScopedEffectsMap.forEach((v, k) => {
-        console.log({ v, k });
-      });
       disposeCallback && disposeCallback();
       allScopedEffectsMap = undefined;
       allScopedClearMemosMap = undefined;
@@ -137,7 +130,6 @@ function init() {
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
-      // debugger
       if (getShouldClearCache()) {
         runOnCleanupsFor(fn);
         // Update the cached data and reset flag
@@ -156,7 +148,10 @@ function init() {
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
+
     if (!getScopeCollectorFn()) {
+      // TODO This is also triggered when nesting createEffects but they are actually scoped
+      // Fixe it somehow
       console.warn(fn,
         "Current effect is out of scope and can't be cleaned up.",
         "Wrap it in a createScope to avoid memory leaks",
