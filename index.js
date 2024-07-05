@@ -157,7 +157,7 @@ function init() {
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
     if (!getScopeCollectorFn()) {
-      console.warn(
+      console.warn(fn,
         "Current effect is out of scope and can't be cleaned up.",
         "Wrap it in a createScope to avoid memory leaks",
       );

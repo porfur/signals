@@ -19,6 +19,7 @@ import {
   createEffect(() => {
     console.log("Count is now", count());
     button.innerText = `Counter: ${count()}`;
+    createEffect(() => console.log('NESTED'))
   });
 
   button.addEventListener("click", () => setCount(count() + 1));
