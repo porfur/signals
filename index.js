@@ -68,9 +68,9 @@ function init() {
     function dispose(disposeCallback) {
       disposeFromScopeMap(allScopedEffectsMap);
       disposeFromScopeMap(allScopedClearMemosMap);
-      disposeCallback && disposeCallback();
       allScopedEffectsMap = undefined;
       allScopedClearMemosMap = undefined;
+      disposeCallback && disposeCallback();
     }
   }
 
