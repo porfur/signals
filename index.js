@@ -102,7 +102,7 @@ function init() {
     // Run the defered effects
     runEffects(allEffects, true);
 
-    // Reset currentBatchEffects to undefined
+    // Reset global batch effects to undefined
     setBatchEffectsFn();
   }
 
@@ -148,11 +148,9 @@ function init() {
   // Sets the global currentEffect variable to it's callback
   // to be accessed by the signals used inside that callback
   function createEffect(fn) {
-
     if (!getScopeCollectorFn()) {
-      // TODO This is also triggered when nesting createEffects but they are actually scoped
-      // Fixe it somehow
-      console.warn(fn,
+      console.warn(
+        fn,
         "Current effect is out of scope and can't be cleaned up.",
         "Wrap it in a createScope to avoid memory leaks",
       );
@@ -241,19 +239,20 @@ function init() {
 
   // Function used to run a signal's effects
   // NOTE: Also removes effect if the effect returns true
-  function runEffects(effectsSet, skipBatch = false ) {
+  function runEffects(effectsSet, skipBatch = false) {
     const batchEffects = skipBatch ? null : getBatchEffectsFn();
     if (batchEffects) {
       batchEffects(effectsSet);
       return;
     }
     effectsSet.forEach((fn) => {
+      // onCleanups should run before running the effects
+      runOnCleanupsFor(fn);
       if (fn()) {
         effectsSet.delete(fn);
       }
+      //Need to re-add to golobalcleanup because runOnCleanupsFor also removes them from globalCleanup
       addFuncToGlobalCleanup(fn);
-      //Delete because effects rerun and re add the onCleanups
-      runOnCleanupsFor(fn);
     });
   }
 
@@ -303,7 +302,7 @@ function init() {
     batch,
     createMemo,
     createScope,
-    onCleanup
+    onCleanup,
   };
 }
 
