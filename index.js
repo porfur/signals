@@ -216,15 +216,13 @@ function init() {
     // the memoized values are updated (cache is cleared if the value changes).
     // If multiple setters are called inside a batch function then the effects of
     // all those signals are batched together and duplicates are removed before being run
-    const setSignal = (newValue, alwaysRun = false) => {
-      if (alwaysRun) {
-        runEffects(effectsSet);
-        return signalValue;
+    const setSignal = (newValue, forceReactivity = false) => {
+      if (newValue !== signalValue || forceReactivity) {
+        //Order below matters
+        clearMemoForSet(clearMemosSet); // clear memos
+        signalValue = newValue; // update value
+        runEffects(effectsSet); // run effects with new val
       }
-      //Order below matters
-      clearMemoForSet(clearMemosSet); // clear memos
-      signalValue = newValue; // update value
-      runEffects(effectsSet); // run effects with new val
       return signalValue;
     };
 
