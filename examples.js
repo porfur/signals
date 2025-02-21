@@ -36,30 +36,33 @@ import {
 // When there are multiple signals in an effect, each of those signals
 // runs it's own copy of that effect. Wraping the setters in a batch
 // alows that effect to run only once
-// (() => {
-//   const batchbutton = document.querySelector("#batch-button");
-//   const nobatchbutton = document.querySelector("#no-batch-button");
-//   const [positiveCount, setPositiveCount] = createSignal(0);
-//   const [negativeCount, setNegativeCount] = createSignal(0);
-//
-//   createEffect(() => {
-//     console.log("Positive count is now", positiveCount());
-//     console.log("Negative count is now", negativeCount());
-//     batchbutton.innerText = `Batch Counter: ${positiveCount()}${negativeCount()}`;
-//     nobatchbutton.innerText = `No Batch Counter: ${positiveCount()}${negativeCount()}`;
-//   });
-//
-//   nobatchbutton.addEventListener("click", () => {
-//     setPositiveCount(positiveCount() + 1);
-//     setNegativeCount(negativeCount() - 1);
-//   });
-//   batchbutton.addEventListener("click", () => {
-//     batch(() => {
-//       setPositiveCount(positiveCount() + 1);
-//       setNegativeCount(negativeCount() - 1);
-//     });
-//   });
-// })();
+(() => {
+  const batchbutton = document.querySelector("#batch-button");
+  const nobatchbutton = document.querySelector("#no-batch-button");
+  const [positiveCount, setPositiveCount] = createSignal(0);
+  const [negativeCount, setNegativeCount] = createSignal(0);
+
+  createEffect(() => {
+    console.log("Positive count is now", positiveCount());
+    console.log("Negative count is now", negativeCount());
+    batchbutton.innerText = `Batch Counter: ${positiveCount()}${negativeCount()}`;
+    nobatchbutton.innerText = `No Batch Counter: ${positiveCount()}${negativeCount()}`;
+  });
+
+  nobatchbutton.addEventListener("click", () => {
+    setPositiveCount(positiveCount() + 1);
+    setNegativeCount(negativeCount() - 1);
+  });
+  batchbutton.addEventListener("click", () => {
+    batch(() => {
+      console.log('as')
+      setPositiveCount(positiveCount() + 1);
+      batch(()=> {
+setNegativeCount(negativeCount() - 1)
+        batch(()=> setNegativeCount(negativeCount() + 1) ) } );
+    });
+  });
+})();
 //
 // ==============================================================================
 //
@@ -122,32 +125,34 @@ import {
 // [[ CREATE SCOPE ]]
 // Effects and Memoized values are stored in a signal.
 // Wraping the code in createScope alows the disposal of unused effects and memos
-// (() => {
-//   const scopeBtn = document.querySelector("#scope-button");
-//   const noScopeBtn = document.querySelector("#no-scope-button");
-//   const [count, setCount] = createSignal(0);
-//
-//   const dispose = createScope(() => {
-//     const memo = createMemo(() => {
-//       console.log("Count in Memo is now", count());
-//       return count();
-//     });
-//     createEffect(() => {
-//       console.log("Count in Effect is now:", count());
-//       scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
-//     });
-//     scopeBtn.addEventListener("click", () => {
-//       setCount(count() + 1);
-//       console.log("Count on Click is:", count());
-//     });
-//   });
-//
-//   noScopeBtn.addEventListener("click", () => {
-//     dispose(() => {
-//       console.log("Effects in scope were now disposed");
-//     });
-//   });
-// })();
+(() => {
+  const scopeBtn = document.querySelector("#scope-button");
+  const noScopeBtn = document.querySelector("#no-scope-button");
+  const [count, setCount] = createSignal(0);
+
+  const dispose = createScope(() => {
+    onCleanup(() => console.log("IN DISPOSE CLEANUP"));
+    const memo = createMemo(() => {
+      console.log("Count in Memo is now", count());
+      return count();
+    });
+    createEffect(() => {
+      console.log("Count in Effect is now:", count());
+      scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
+    });
+    scopeBtn.addEventListener("click", () => {
+      debugger
+      setCount(count() + 1);
+      console.log("Count on Click is:", count());
+    });
+  });
+
+  noScopeBtn.addEventListener("click", () => {
+    dispose(() => {
+      console.log("Effects in scope were now disposed");
+    });
+  });
+})();
 
 // [[ ON CLEANUP - EFFECT ]]
 // (() => {

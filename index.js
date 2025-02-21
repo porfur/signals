@@ -35,8 +35,8 @@ function init() {
   function onCleanup(callback) {
     const onCleanupSet = getOnCleanupSet() || new Set();
     onCleanupSet.add(callback);
-    if (getEffect()||getClearMemoFn()) {
-     setOnCleanupSet(onCleanupSet); 
+    if (getEffect() || getClearMemoFn()) {
+      setOnCleanupSet(onCleanupSet);
     }
   }
 
@@ -88,6 +88,7 @@ function init() {
   // Defers the effects of all signals set in the callback
   // and removes duplicates before running them
   function batch(callback) {
+    const previousBatch = getBatchEffectsFn() || null;
     const allEffects = new Set();
     function uniteEffects(effectsSet) {
       if (effectsSet.size) {
@@ -107,8 +108,10 @@ function init() {
     // getBatchEffectsFn() being set to a function
     callback();
 
-    // Run the defered effects
-    runEffects(allEffects, true);
+    // Run the defered effects only once for all the batches
+    if (!previousBatch) {
+      runEffects(allEffects, true);
+    }
 
     // Reset global batch effects to undefined
     setBatchEffectsFn();
