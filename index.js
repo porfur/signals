@@ -14,7 +14,7 @@ function init() {
   const [getEffect, setEffect] = createValue();
   const [getClearMemoFn, setClearMemoFn] = createValue();
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
-  const [getScopeCollectorFn, setScopeCollectorFunc] = createValue();
+  const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
   const [getOnCleanupSet, setOnCleanupSet] = createValue();
   const globalCleanupMap = new Map();
 
@@ -44,9 +44,9 @@ function init() {
     let allScopedEffectsMap = new Map();
     let allScopedClearMemosMap = new Map();
 
-    setScopeCollectorFunc(scopeCollector);
+    setScopeCollectorFn(scopeCollector);
     callback();
-    setScopeCollectorFunc();
+    setScopeCollectorFn();
     return dispose;
     // Get a signal's effectsSet and the current effect
     // and add them to the allEffectsMap
@@ -114,7 +114,8 @@ function init() {
   // cached data or the updated data if it changed
   function createMemo(fn) {
     let cachedData;
-    let [getShouldClearCache, setShouldClearCache] = createValue(true);
+    // Initial value is false so it doesn't run the cleanup on the first get
+    let [getShouldClearCache, setShouldClearCache] = createValue(false);
 
     // Set global clearMemoFn to the local shouldClearCache setter
     // That global function will be used by the signal to clear

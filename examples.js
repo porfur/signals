@@ -16,21 +16,18 @@ import {
   const button = document.querySelector("#createEffect-button");
   const [count, setCount] = createSignal(0);
 
-  const dispose = createScope(() =>
-    createEffect(() => {
-      console.log("Count is now", count());
-      button.innerText = `Counter: ${count()}`;
+  createEffect(() => {
+    console.log("Count is now", count());
+    button.innerText = `Counter: ${count()}`;
 
-      //If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
-      const innerDispose = createScope(() =>
-        createEffect(() => console.log("NESTED count", count())),
-      );
-      innerDispose(() => console.log("InnerDisposeRan"));
-      //
-    }),
-  );
-
-  button.addEventListener("click", () => setCount(count() + 1));
+    //If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
+    // const innerDispose = createScope(() =>
+    //   createEffect(() => console.log("NESTED count", count())),
+    // );
+    // innerDispose(() => console.log("InnerDisposeRan"));
+    //
+  }),
+    button.addEventListener("click", () => setCount(count() + 1));
 })();
 //
 // // ==============================================================================
@@ -67,92 +64,90 @@ import {
 // ==============================================================================
 //
 // // [[ CREATE MEMO ]]
-// (() => {
-//   const memobutton = document.querySelector("#memo-button");
-//   const nomemobutton = document.querySelector("#no-memo-button");
-//   const memotext = document.querySelector("#memo-text");
-//   const nomemotext = document.querySelector("#no-memo-text");
-//   const [noMemoCount, setNoMemoCount] = createSignal(0);
-//   const [memoCount, setMemoCount] = createSignal(0);
-//
-//   function countTo(nr, startNr = 0) {
-//     if (startNr > nr) {
-//       console.log(" ------ Counting done");
-//       return nr;
-//     }
-//     return countTo(nr, startNr + 1);
-//   }
-//
-//   // Without createMemo
-//   createEffect(() => {
-//     nomemobutton.innerText = `Without Memo Counter: ${noMemoCount()}`;
-//     const fragment = document.createDocumentFragment();
-//     console.log(" ========= Without createMemo Start ========= ");
-//     for (let i = 0; i <= noMemoCount(); i++) {
-//       fragment.append(document.createTextNode(` ${countTo(noMemoCount())}`));
-//     }
-//     console.log(" ========= Without createMemo End =========== ");
-//     nomemotext.appendChild(fragment);
-//   });
-//
-//   // With createMemo
-//   const memoizedCountDown = createMemo(() => {
-//     console.log("In CreateMemo");
-//     if (memoCount() % 2) {
-//     }
-//     return countTo(memoCount());
-//   });
-//
-//   createEffect(() => {
-//     console.log(" ========= With createMemo Start ========= ");
-//     memobutton.innerText = `With Memo Counter: ${memoCount()}`;
-//     const fragment = document.createDocumentFragment();
-//     for (let i = 0; i <= memoCount(); i++) {
-//       fragment.append(document.createTextNode(` ${memoizedCountDown()}`));
-//     }
-//     memotext.appendChild(fragment);
-//     console.log(" ========= With createMemo End =========== ");
-//   });
-//
-//   nomemobutton.addEventListener("click", () => {
-//     setNoMemoCount(noMemoCount() + 1);
-//   });
-//   memobutton.addEventListener("click", () => {
-//     setMemoCount(memoCount() + 1);
-//   });
-// })();
+(() => {
+  const memobutton = document.querySelector("#memo-button");
+  const nomemobutton = document.querySelector("#no-memo-button");
+  const memotext = document.querySelector("#memo-text");
+  const nomemotext = document.querySelector("#no-memo-text");
+  const [noMemoCount, setNoMemoCount] = createSignal(0);
+  const [memoCount, setMemoCount] = createSignal(0);
+
+  function countTo(nr, startNr = 0) {
+    if (startNr > nr) {
+      console.log(" ------ Counting done");
+      return nr;
+    }
+    return countTo(nr, startNr + 1);
+  }
+
+  // Without createMemo
+  createEffect(() => {
+    nomemobutton.innerText = `Without Memo Counter: ${noMemoCount()}`;
+    const fragment = document.createDocumentFragment();
+    console.log(" ========= Without createMemo Start ========= ");
+    for (let i = 0; i <= noMemoCount(); i++) {
+      fragment.append(document.createTextNode(` ${countTo(noMemoCount())}`));
+    }
+    console.log(" ========= Without createMemo End =========== ");
+    nomemotext.appendChild(fragment);
+  });
+
+  // With createMemo
+  const memoizedCountDown = createMemo(() => {
+    console.log("IN MEMO");
+    return countTo(memoCount());
+  });
+
+  createEffect(() => {
+    console.log(" ========= With createMemo Start ========= ");
+    memobutton.innerText = `With Memo Counter: ${memoCount()}`;
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i <= memoCount(); i++) {
+      fragment.append(document.createTextNode(` ${memoizedCountDown()}`));
+    }
+    memotext.appendChild(fragment);
+    console.log(" ========= With createMemo End =========== ");
+  });
+
+  nomemobutton.addEventListener("click", () => {
+    setNoMemoCount(noMemoCount() + 1);
+  });
+  memobutton.addEventListener("click", () => {
+    setMemoCount(memoCount() + 1);
+  });
+})();
 //
 // // ==============================================================================
 
 // [[ CREATE SCOPE ]]
 // Effects and Memoized values are stored in a signal.
 // Wraping the code in createScope alows the disposal of unused effects and memos
-(() => {
-  const scopeBtn = document.querySelector("#scope-button");
-  const noScopeBtn = document.querySelector("#no-scope-button");
-  const [count, setCount] = createSignal(0);
-
-  const dispose = createScope(() => {
-    const memo = createMemo(() => {
-      console.log("Count in Memo is now", count());
-      return count();
-    });
-    createEffect(() => {
-      console.log("Count in Effect is now:", count());
-      scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
-    });
-    scopeBtn.addEventListener("click", () => {
-      setCount(count() + 1);
-      console.log("Count on Click is:", count());
-    });
-  });
-
-  noScopeBtn.addEventListener("click", () => {
-    dispose(() => {
-      console.log("Effects in scope were now disposed");
-    });
-  });
-})();
+// (() => {
+//   const scopeBtn = document.querySelector("#scope-button");
+//   const noScopeBtn = document.querySelector("#no-scope-button");
+//   const [count, setCount] = createSignal(0);
+//
+//   const dispose = createScope(() => {
+//     const memo = createMemo(() => {
+//       console.log("Count in Memo is now", count());
+//       return count();
+//     });
+//     createEffect(() => {
+//       console.log("Count in Effect is now:", count());
+//       scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
+//     });
+//     scopeBtn.addEventListener("click", () => {
+//       setCount(count() + 1);
+//       console.log("Count on Click is:", count());
+//     });
+//   });
+//
+//   noScopeBtn.addEventListener("click", () => {
+//     dispose(() => {
+//       console.log("Effects in scope were now disposed");
+//     });
+//   });
+// })();
 
 // [[ ON CLEANUP - EFFECT ]]
 // (() => {
@@ -167,7 +162,7 @@ import {
 //   }
 //
 //   createEffect(() => {
-//     cleanupBtn.innerText = `${randomNr()}`;
+//     cleanupBtn.innerText = `onCleanup - ${randomNr()}`;
 //
 //     let increment = 0;
 //
@@ -175,16 +170,15 @@ import {
 //       cleanupText.innerText = `${increment} - ${randomNr()} - ${randomNr2()}`;
 //       increment++;
 //     }, 1000);
-//     console.log("effect", interval);
+//     console.log("INTERVAL ID", interval);
 //
 //     onCleanup(() => {
-//       console.log("ON CLEANUP  RAN");
-//       console.log("clean", { interval });
 //       clearInterval(interval);
+//       console.log("INTERVAL", interval, "CLEARED ON CLEANUP");
 //     });
-//     onCleanup(() => {
-//       console.log("ON CLEANUP 2");
-//     });
+//     // onCleanup(() => {
+//     //   console.log("ON CLEANUP 2");
+//     // });
 //     return;
 //   });
 //
@@ -197,39 +191,41 @@ import {
 // })();
 
 // [[ ON CLEANUP - MEMO ]]
-// (() => {
-//   const incrementBtn = document.querySelector("#cleanup-all-button-increment");
-//   const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
-//   const [count, setCount] = createSignal(0);
-//
-//   const dispose = createScope(() => {
-//     function countTo(nr, startNr = 0) {
-//       if (startNr > nr) {
-//         console.log(" ------ Counting done");
-//         return nr;
-//       }
-//       return countTo(nr, startNr + 1);
-//     }
-//     const memoizedCountDown = createMemo(() => {
-//       if (!(count() % 5)) {
-//         onCleanup(() => {
-//           console.log("ON CLEANUP MEMO RAN");
-//         });
-//       }
-//       return countTo(count());
-//     });
-//
-//     createEffect(() => {
-//       incrementBtn.innerText = memoizedCountDown();
-//     });
-//
-//     incrementBtn.addEventListener("click", () => {
-//       setCount(count() + 1);
-//     });
-//   });
-//   disposeBtn.addEventListener("click", () => {
-//     dispose(() => {
-//       console.log("DIspose clicked");
-//     });
-//   });
-// })();
+(() => {
+  const incrementBtn = document.querySelector("#cleanup-all-button-increment");
+  const disposeBtn = document.querySelector("#cleanup-all-button-dispose");
+  const [count, setCount] = createSignal(0);
+
+  const dispose = createScope(() => {
+    function countTo(nr, startNr = 0) {
+      if (startNr > nr) {
+        console.log(" ------ Counting done");
+        return nr;
+      }
+      return countTo(nr, startNr + 1);
+    }
+    let cleanupCount = 0;
+    const memoizedCountDown = createMemo(() => {
+      onCleanup(() => {
+        console.log("ON CLEANUP MEMO RAN", cleanupCount);
+        cleanupCount++;
+      });
+      return countTo(count());
+    });
+
+    createEffect(() => {
+      for (let i = 0; i <= count(); i++) {
+        incrementBtn.append(document.createTextNode(` ${memoizedCountDown()}`));
+      }
+    });
+
+    incrementBtn.addEventListener("click", () => {
+      setCount(count() + 1);
+    });
+  });
+  disposeBtn.addEventListener("click", () => {
+    dispose(() => {
+      console.log("DIspose clicked");
+    });
+  });
+})();
