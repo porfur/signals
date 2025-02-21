@@ -24,12 +24,20 @@ function init() {
 
   // ============================================================================
   // [[ REACTIVITY FUNCTIONS ]]
-  //(( Cleanup ))
-  //TO DO
+
+  /**
+   * (( onCleanup ))
+   * When called inside a createMemo or createEffect callback
+   * it's callback is ran before re-running that memo/effect callback
+   *
+   * @param {Function} callback
+   */
   function onCleanup(callback) {
     const onCleanupSet = getOnCleanupSet() || new Set();
     onCleanupSet.add(callback);
-    setOnCleanupSet(onCleanupSet);
+    if (getEffect()||getClearMemoFn()) {
+     setOnCleanupSet(onCleanupSet); 
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -252,7 +260,7 @@ function init() {
       if (fn()) {
         effectsSet.delete(fn);
       }
-      //Need to re-add to golobalcleanup because runOnCleanupsFor also removes them from globalCleanup
+      //Need to re-add to globalCleanup because runOnCleanupsFor also removes them from globalCleanup
       addFuncToGlobalCleanup(fn);
     });
   }
