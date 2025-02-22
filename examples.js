@@ -55,11 +55,12 @@ import {
   });
   batchbutton.addEventListener("click", () => {
     batch(() => {
-      console.log('as')
+      console.log("as");
       setPositiveCount(positiveCount() + 1);
-      batch(()=> {
-setNegativeCount(negativeCount() - 1)
-        batch(()=> setNegativeCount(negativeCount() + 1) ) } );
+      batch(() => {
+        setNegativeCount(negativeCount() - 1);
+        batch(() => setNegativeCount(negativeCount() + 1));
+      });
     });
   });
 })();
@@ -141,7 +142,7 @@ setNegativeCount(negativeCount() - 1)
       scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
     });
     scopeBtn.addEventListener("click", () => {
-      debugger
+      debugger;
       setCount(count() + 1);
       console.log("Count on Click is:", count());
     });

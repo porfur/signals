@@ -10,17 +10,12 @@ function init() {
   //
   // (( Variables ))
   // Globals used by the REACTIVITY functions to pass around functions
-
   const [getEffect, setEffect] = createValue();
   const [getClearMemoFn, setClearMemoFn] = createValue();
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
   const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
   const [getOnCleanupSet, setOnCleanupSet] = createValue();
   const globalCleanupMap = new Map();
-
-  // (( Functions ))
-  // Used to set global variables
-  // No arguments sets them to undefined
 
   // ============================================================================
   // [[ REACTIVITY FUNCTIONS ]]
