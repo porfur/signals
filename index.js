@@ -207,6 +207,8 @@ function init() {
       return signalValue;
     }
 
+    getSignal.isSignal = true; // Used to check if a function is a signal getter
+
     // When a setter is called the effects of the signal are ran and
     // the memoized values are updated (cache is cleared if the value changes).
     // If multiple setters are called inside a batch function then the effects of

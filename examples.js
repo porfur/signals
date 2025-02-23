@@ -15,7 +15,7 @@ import {
 (() => {
   const button = document.querySelector("#createEffect-button");
   const [count, setCount] = createSignal(0);
-
+  let flag;
   createEffect(() => {
     console.log("Count is now", count());
     button.innerText = `Counter: ${count()}`;
@@ -27,7 +27,10 @@ import {
     // innerDispose(() => console.log("InnerDisposeRan"));
     //
   }),
-    button.addEventListener("click", () => setCount(count() + 1));
+    button.addEventListener("click", () => {
+      flag = !flag;
+      return flag ? setCount(count()) : setCount(count() + 1);
+    });
 })();
 //
 // // ==============================================================================
