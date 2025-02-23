@@ -19,16 +19,18 @@ import {
   createEffect(() => {
     console.log("Count is now", count());
     button.innerText = `Counter: ${count()}`;
+    console.log(count)
 
-    //If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
-    // const innerDispose = createScope(() =>
-    //   createEffect(() => console.log("NESTED count", count())),
-    // );
-    // innerDispose(() => console.log("InnerDisposeRan"));
-    //
+    // If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
+    const innerDispose = createScope(() =>
+      createEffect(() => console.log("NESTED count", count())),
+    );
+    innerDispose(() => console.log("InnerDisposeRan"));
+
   }),
     button.addEventListener("click", () => {
       flag = !flag;
+      return  setCount(count() + 1);
       return flag ? setCount(count()) : setCount(count() + 1);
     });
 })();
