@@ -19,6 +19,7 @@ import {
   createEffect(() => {
     console.log("Count is now", count());
     button.innerText = `Counter: ${count()}`;
+    console.log(count)
 
     //If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
     // const innerDispose = createScope(() =>
