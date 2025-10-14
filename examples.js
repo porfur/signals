@@ -16,23 +16,22 @@ import {
   const button = document.querySelector("#createEffect-button");
   const [count, setCount] = createSignal(0);
   let flag;
-  createEffect(() => {
+  (createEffect(() => {
     console.log("Count is now", count());
     button.innerText = `Counter: ${count()}`;
-    console.log(count)
+    console.log(count);
 
-    // If for some reason you want to nest createEffects the inner ones need to be scoped and disposed.
+    // NOTE: If for some reason you want to nest createEffect
+    // the inner ones need to be scoped and disposed
     const innerDispose = createScope(() =>
       createEffect(() => console.log("NESTED count", count())),
     );
     innerDispose(() => console.log("InnerDisposeRan"));
-
   }),
     button.addEventListener("click", () => {
       flag = !flag;
-      return  setCount(count() + 1);
-      return flag ? setCount(count()) : setCount(count() + 1);
-    });
+      return setCount(count() + 1);
+    }));
 })();
 //
 // // ==============================================================================
@@ -44,6 +43,7 @@ import {
 (() => {
   const batchbutton = document.querySelector("#batch-button");
   const nobatchbutton = document.querySelector("#no-batch-button");
+
   const [positiveCount, setPositiveCount] = createSignal(0);
   const [negativeCount, setNegativeCount] = createSignal(0);
 
@@ -57,14 +57,33 @@ import {
   nobatchbutton.addEventListener("click", () => {
     setPositiveCount(positiveCount() + 1);
     setNegativeCount(negativeCount() - 1);
+    setPositiveCount(positiveCount() + 1);
+    setNegativeCount(negativeCount() - 1);
+    setPositiveCount(positiveCount() + 1);
+    setNegativeCount(negativeCount() - 1);
+    setPositiveCount(positiveCount() + 1);
+    setNegativeCount(negativeCount() - 1);
   });
   batchbutton.addEventListener("click", () => {
+    // NOTE:
+    // No idea why you would do this but batches can be
+    // nested and it will still run the effects only once
     batch(() => {
-      console.log("as");
       setPositiveCount(positiveCount() + 1);
+      setNegativeCount(negativeCount() - 1);
+      setPositiveCount(positiveCount() + 1);
+      setNegativeCount(negativeCount() - 1);
       batch(() => {
-        setNegativeCount(negativeCount() - 1);
-        batch(() => setNegativeCount(negativeCount() + 1));
+        batch(() => {
+          console.log('in the mid batch')
+          setPositiveCount(positiveCount() + 1);
+          setNegativeCount(negativeCount() - 1);
+          batch(() => {
+            console.log('in the deep batch')
+            setPositiveCount(positiveCount() + 1);
+            setNegativeCount(negativeCount() - 1);
+          });
+        });
       });
     });
   });
@@ -103,7 +122,10 @@ import {
 
   // With createMemo
   const memoizedCountDown = createMemo(() => {
-    console.log("IN MEMO");
+    // NOTE: Nested createMemos will give a warning in the console but still work
+    //
+    const innerMemo = createMemo(() => countTo(memoCount()));
+    // console.log('inner',innerMemo())
     return countTo(memoCount());
   });
 
@@ -137,7 +159,9 @@ import {
   const [count, setCount] = createSignal(0);
 
   const dispose = createScope(() => {
+    // ON CLEANUP NOT WORKING FOR SCOPE
     onCleanup(() => console.log("IN DISPOSE CLEANUP"));
+
     const memo = createMemo(() => {
       console.log("Count in Memo is now", count());
       return count();
@@ -147,7 +171,6 @@ import {
       scopeBtn.innerText = `Counter: ${count()} | Counter memo: ${memo()}`;
     });
     scopeBtn.addEventListener("click", () => {
-      debugger;
       setCount(count() + 1);
       console.log("Count on Click is:", count());
     });
@@ -161,45 +184,47 @@ import {
 })();
 
 // [[ ON CLEANUP - EFFECT ]]
-// (() => {
-//   const cleanupBtn = document.querySelector("#cleanup-button");
-//   const cleanupText = document.querySelector("#cleanup-text");
-//   const [randomNr, setRandomNr] = createSignal(getRandomNr());
-//   const [randomNr2, setRandomNr2] = createSignal(getRandomNr());
-//   const [isIntervalOn, setIsIntervalOn] = createSignal(false);
-//
-//   function getRandomNr() {
-//     return Math.floor(Math.random() * 10);
-//   }
-//
-//   createEffect(() => {
-//     cleanupBtn.innerText = `onCleanup - ${randomNr()}`;
-//
-//     let increment = 0;
-//
-//     const interval = setInterval(() => {
-//       cleanupText.innerText = `${increment} - ${randomNr()} - ${randomNr2()}`;
-//       increment++;
-//     }, 1000);
-//     console.log("INTERVAL ID", interval);
-//
-//     onCleanup(() => {
-//       clearInterval(interval);
-//       console.log("INTERVAL", interval, "CLEARED ON CLEANUP");
-//     });
-//     // onCleanup(() => {
-//     //   console.log("ON CLEANUP 2");
-//     // });
-//     return;
-//   });
-//
-//   cleanupBtn.addEventListener("click", () => {
-//     batch(() => {
-//       setRandomNr(getRandomNr());
-//       setRandomNr2(getRandomNr());
-//     });
-//   });
-// })();
+(() => {
+  const cleanupBtn = document.querySelector("#cleanup-button");
+  const cleanupText = document.querySelector("#cleanup-text");
+  const [randomNr, setRandomNr] = createSignal(getRandomNr());
+  const [randomNr2, setRandomNr2] = createSignal(getRandomNr());
+
+  function getRandomNr() {
+    return Math.floor(Math.random() * 100);
+  }
+
+  createEffect(() => {
+    let increment = 0;
+
+    const interval = setInterval(() => {
+      cleanupText.innerText = `${increment} - ${interval} - ${randomNr()}`;
+      increment++;
+    }, 1000);
+
+    cleanupBtn.innerText = `onCleanup - ${randomNr()}`;
+    console.log("INTERVAL ID", interval);
+
+    onCleanup(() => {
+      clearInterval(interval);
+      console.log("INTERVAL", interval, "CLEARED ON CLEANUP");
+    });
+    onCleanup(() => {
+      onCleanup(() => {
+        onCleanup(() => {
+          console.log("ON CLEANUP NESTED");
+        });
+      });
+    });
+  });
+
+  cleanupBtn.addEventListener("click", () => {
+    batch(() => {
+      setRandomNr(getRandomNr());
+      setRandomNr2(getRandomNr());
+    });
+  });
+})();
 
 // [[ ON CLEANUP - MEMO ]]
 (() => {
@@ -221,6 +246,13 @@ import {
         console.log("ON CLEANUP MEMO RAN", cleanupCount);
         cleanupCount++;
       });
+    const memoizedCountDownInner = createMemo(() => {
+      onCleanup(() => {
+        console.log("ON CLEANUP INNER MEMO RAN", cleanupCount);
+        cleanupCount++;
+      });
+      });
+      console.log(memoizedCountDownInner())
       return countTo(count());
     });
 
