@@ -89,6 +89,9 @@ function init() {
     // Removes all disposable effects/clearMemos
     // from the scopedEffectsMap/scopedClearMemosMap
     function dispose(disposeCallback) {
+      if (!scopedEffectsMap) {
+        return;
+      }
       disposeFromScopeMap(scopedEffectsMap);
       disposeFromScopeMap(scopedClearMemosMap);
       scopedEffectsMap = undefined;
@@ -115,15 +118,17 @@ function init() {
 
     // Joins all effects in a single Set without duplicates
     function uniteEffects(effectsSet) {
-      if (effectsSet.size) {
-        allEffects.add(...effectsSet);
-      }
+      effectsSet.forEach((e) => allEffects.add(e));
       return allEffects;
     }
 
     // This flag is used to warn in case of nested batching
     if (getIsbatching()) {
-      console.warn(fn, "Batch calls are being nested", "They all get ");
+      console.warn(
+        fn,
+        "Batch calls are being nested",
+        "They all get bundled in one big batch at the end but you shouldn't do that because it hurts my soul.",
+      );
     }
 
     // Sets the global batchEffectsFn to a function
@@ -161,7 +166,7 @@ function init() {
   // cached data or the updated data if it changed
   function createMemo(fn) {
     let cachedData;
-const previousClearMemoFn = getClearMemoFn()
+    const previousClearMemoFn = getClearMemoFn();
 
     // Initial value is false so it doesn't run the cleanup on the first get
     let [getShouldClearCache, setShouldClearCache] = createValue(false);
@@ -173,14 +178,14 @@ const previousClearMemoFn = getClearMemoFn()
         "This is a nested createMemo call.",
         "createMemo cannot be nested.",
       );
-      console.trace(fn)
-      return
+      console.trace(fn);
+      return;
     }
 
-      // Set global clearMemoFn to the local shouldClearCache setter
-      // That global function will be used by the signal to clear
-      // the cache of this memo when the signal's value changes
-      setClearMemoFn(() => setShouldClearCache(true));
+    // Set global clearMemoFn to the local shouldClearCache setter
+    // That global function will be used by the signal to clear
+    // the cache of this memo when the signal's value changes
+    setClearMemoFn(() => setShouldClearCache(true));
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the global setClearMemoFn
     cachedData = fn();
@@ -219,7 +224,7 @@ const previousClearMemoFn = getClearMemoFn()
       console.warn(
         fn,
         "You are nesting effects.",
-        "I dont't know why but make sure you wrap it in a scope and dispose of it.",
+        "I don't know why but make sure you wrap it in a scope and dispose of it.",
       );
     }
     setEffect(fn);
@@ -353,8 +358,8 @@ const previousClearMemoFn = getClearMemoFn()
 
   function addFuncToGlobalCleanup(callback) {
     const currentOnCleanUpSet = getOnCleanupSet();
-    if (!currentOnCleanUpSet || !callback) return;
     setOnCleanupSet();
+    if (!currentOnCleanUpSet || !callback) return;
     if (!globalCleanupMap.has(callback)) {
       globalCleanupMap.set(callback, currentOnCleanUpSet);
     }

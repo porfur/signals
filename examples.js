@@ -75,11 +75,11 @@ import {
       setNegativeCount(negativeCount() - 1);
       batch(() => {
         batch(() => {
-          console.log('in the mid batch')
+          console.log("in the mid batch");
           setPositiveCount(positiveCount() + 1);
           setNegativeCount(negativeCount() - 1);
           batch(() => {
-            console.log('in the deep batch')
+            console.log("in the deep batch");
             setPositiveCount(positiveCount() + 1);
             setNegativeCount(negativeCount() - 1);
           });
@@ -122,14 +122,11 @@ import {
 
   // With createMemo
   const memoizedCountDown = createMemo(() => {
-    // NOTE: Nested createMemos will give a warning in the console but still work
-    //
-    const innerMemo = createMemo(() => countTo(memoCount()));
-    // console.log('inner',innerMemo())
     return countTo(memoCount());
   });
 
   createEffect(() => {
+
     console.log(" ========= With createMemo Start ========= ");
     memobutton.innerText = `With Memo Counter: ${memoCount()}`;
     const fragment = document.createDocumentFragment();
@@ -246,13 +243,7 @@ import {
         console.log("ON CLEANUP MEMO RAN", cleanupCount);
         cleanupCount++;
       });
-    const memoizedCountDownInner = createMemo(() => {
-      onCleanup(() => {
-        console.log("ON CLEANUP INNER MEMO RAN", cleanupCount);
-        cleanupCount++;
-      });
-      });
-      console.log(memoizedCountDownInner())
+      
       return countTo(count());
     });
 
@@ -271,4 +262,30 @@ import {
       console.log("DIspose clicked");
     });
   });
+})();
+
+// RUN EFFECT ON MEMO CHANGE
+(() => {
+  const btn = document.querySelector("#memo-effect-btn");
+  const text = document.querySelector("#memo-effect-text");
+  const [count, setCount] = createSignal(0);
+
+  const dispose = createScope(() => {
+    const memo = createMemo(()=>{ 
+      return!!(count()%3) })
+
+    createEffect(() => {
+        text.innerText = `Is divisible by 3 ${ memo() }`
+        console.log('Effect ran with ',memo())
+    });
+
+  btn.addEventListener("click", () => {
+    setCount(count()+1)
+      btn.innerText = count()
+    console.log("clicked", count());
+    console.log("clicked", memo());
+  });
+
+  });
+
 })();
