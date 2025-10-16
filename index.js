@@ -14,11 +14,12 @@ function init() {
   // Globals used by the reactivity functions
   const [getEffect, setEffect] = createValue();
   const [getClearMemoFn, setClearMemoFn] = createValue();
-  const [getIsbatching, setIsBatching] = createValue();
+  const [getIsBatching, setIsBatching] = createValue();
   const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
   const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
   const [getOnCleanupSet, setOnCleanupSet] = createValue();
   const [getIsCleaning, setIsCleaning] = createValue();
+  const [getIsGettingMemo, setIsGettingMemo] = createValue();
 
   // A map where the key is an effect function
   // and the value is a set of cleanup functions
@@ -123,7 +124,7 @@ function init() {
     }
 
     // This flag is used to warn in case of nested batching
-    if (getIsbatching()) {
+    if (getIsBatching()) {
       console.warn(
         fn,
         "Batch calls are being nested",
@@ -181,6 +182,7 @@ function init() {
       console.trace(fn);
       return;
     }
+    addFuncToGlobalCleanup(fn);
 
     // Set global clearMemoFn to the local shouldClearCache setter
     // That global function will be used by the signal to clear
@@ -193,14 +195,35 @@ function init() {
     // Reset global getClearMemoFn() to undefined
     setClearMemoFn();
 
+    let isRunningEffect = false;
+    let effect;
+    const effectSet = new Set();
+    let batchEffectFn;
+
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
+      setIsGettingMemo(true);
+      batchEffectFn = batchEffectFn || getBatchEffectsFn();
+      effect = effect || getEffect();
+      effectSet.add(effect);
       if (getShouldClearCache()) {
         runOnCleanupsFor(fn);
+        const newData = fn();
+        if (!isRunningEffect && effect && newData !== cachedData) {
+          isRunningEffect = true;
+          batchEffectFn && setBatchEffectsFn(batchEffectFn);
+          console.log('Before running memo effects')
+          runEffects(effectSet);
+          console.log('After running memo effects')
+          batchEffectFn && setBatchEffectsFn();
+          isRunningEffect = false;
+        }
+
         // Update the cached data and reset flag
-        cachedData = fn();
+        cachedData = newData;
         setShouldClearCache(false);
       }
+      setIsGettingMemo();
       return cachedData;
     }
 
@@ -253,9 +276,7 @@ function init() {
       const currentEffect = getEffect();
       const currentScopeCollectorFn = getScopeCollectorFn();
       const currentClearMemo = getClearMemoFn();
-
-      addToSet(effectsSet, currentEffect);
-      addToSet(clearMemosSet, currentClearMemo);
+      const isGettingMemo = getIsGettingMemo();
 
       // If inside of a scope pass the data to the
       // scopeCollectorFn so it can dispose when needed
@@ -267,6 +288,17 @@ function init() {
           currentClearMemo,
         });
       }
+
+      if (isGettingMemo) {
+        // This flag means the getSignal function is called from inside a memo.
+        // This means that specific memoised value will
+        // handle the collection and running of effects
+        return signalValue;
+      }
+
+      addToSet(effectsSet, currentEffect);
+      addToSet(clearMemosSet, currentClearMemo);
+
       return signalValue;
     }
 

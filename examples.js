@@ -126,15 +126,18 @@ import {
   });
 
   createEffect(() => {
-
-    console.log(" ========= With createMemo Start ========= ");
-    memobutton.innerText = `With Memo Counter: ${memoCount()}`;
-    const fragment = document.createDocumentFragment();
-    for (let i = 0; i <= memoCount(); i++) {
-      fragment.append(document.createTextNode(` ${memoizedCountDown()}`));
-    }
-    memotext.appendChild(fragment);
-    console.log(" ========= With createMemo End =========== ");
+    batch(() => {
+      console.log(" ========= With createMemo Start ========= ");
+      memobutton.innerText = `With Memo Counter: ${memoCount()}`;
+      const fragment = document.createDocumentFragment();
+    console.log('before memo get',memoizedCountDown())
+      // for (let i = 0; i <= memoCount(); i++) {
+      //   fragment.append(document.createTextNode(` ${memoizedCountDown()}`));
+      // }
+    console.log('after memo get')
+      memotext.appendChild(fragment);
+      console.log(" ========= With createMemo End =========== ");
+    });
   });
 
   nomemobutton.addEventListener("click", () => {
@@ -243,7 +246,7 @@ import {
         console.log("ON CLEANUP MEMO RAN", cleanupCount);
         cleanupCount++;
       });
-      
+
       return countTo(count());
     });
 
@@ -271,21 +274,20 @@ import {
   const [count, setCount] = createSignal(0);
 
   const dispose = createScope(() => {
-    const memo = createMemo(()=>{ 
-      return!!(count()%3) })
-
-    createEffect(() => {
-        text.innerText = `Is divisible by 3 ${ memo() }`
-        console.log('Effect ran with ',memo())
+    const memo = createMemo(() => {
+      return !!(count() % 3);
     });
 
-  btn.addEventListener("click", () => {
-    setCount(count()+1)
-      btn.innerText = count()
-    console.log("clicked", count());
-    console.log("clicked", memo());
-  });
+    createEffect(() => {
+      text.innerText = `Is divisible by 3 ${memo()}`;
+      console.log("Effect ran with ", memo());
+    });
 
+    btn.addEventListener("click", () => {
+      debugger
+      setCount(count() + 1);
+      btn.innerText = count();
+      console.log("===============CLICK", {count: count() , memo:memo()});
+    });
   });
-
 })();
