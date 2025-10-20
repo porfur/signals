@@ -12,14 +12,33 @@ function init() {
   //
   // (( Variables ))
   // Globals used by the reactivity functions
-  const [getEffect, setEffect] = createValue();
-  const [getClearMemoFn, setClearMemoFn] = createValue();
-  const [getIsBatching, setIsBatching] = createValue();
-  const [getBatchEffectsFn, setBatchEffectsFn] = createValue();
-  const [getScopeCollectorFn, setScopeCollectorFn] = createValue();
-  const [getOnCleanupSet, setOnCleanupSet] = createValue();
-  const [getIsCleaning, setIsCleaning] = createValue();
-  const [getIsGettingMemo, setIsGettingMemo] = createValue();
+  const { createValue, globalValues } = initGlobalValues();
+  const [getEffect, setEffect] = createValue("currentEffect");
+
+  function initGlobalValues() {
+    const globalValues = {};
+
+    function createValue(globalKey, initialValue = null) {
+      globalValues[globalKey] = initialValue;
+      return [
+        () => globalValues[globalKey],
+        (newVal) => {
+          globalValues[globalKey] = newVal;
+        },
+      ];
+    }
+    return { createValue, globalValues };
+  }
+
+  const [getClearMemoFn, setClearMemoFn] = createValue("cleanMemoFn");
+  const [getIsBatching, setIsBatching] = createValue("isBatching");
+  const [getBatchEffectsFn, setBatchEffectsFn] = createValue("batchEffectsFn");
+  const [getScopeCollectorFn, setScopeCollectorFn] =
+    createValue("scopeCollectorFn");
+  const [getOnCleanupSet, setOnCleanupSet] = createValue("onCleanupSet");
+  const [getIsCleaning, setIsCleaning] = createValue("isCleaning");
+  const [getIsCalledFromMemo, setIsCalledFormMemo] =
+    createValue("isCalledFromMemo");
 
   // A map where the key is an effect function
   // and the value is a set of cleanup functions
@@ -170,7 +189,7 @@ function init() {
     const previousClearMemoFn = getClearMemoFn();
 
     // Initial value is false so it doesn't run the cleanup on the first get
-    let [getShouldClearCache, setShouldClearCache] = createValue(false);
+    let shouldClearCache;
 
     // Check if memos are nested and log error
     if (previousClearMemoFn) {
@@ -187,7 +206,9 @@ function init() {
     // Set global clearMemoFn to the local shouldClearCache setter
     // That global function will be used by the signal to clear
     // the cache of this memo when the signal's value changes
-    setClearMemoFn(() => setShouldClearCache(true));
+    setClearMemoFn(() => {
+      shouldClearCache = true;
+    });
     //Cache the data for the first time and have the signals inside
     //get access to the setShouldClearCache function via the global setClearMemoFn
     cachedData = fn();
@@ -202,28 +223,28 @@ function init() {
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
-      setIsGettingMemo(true);
+      setIsCalledFormMemo(true);
       batchEffectFn = batchEffectFn || getBatchEffectsFn();
       effect = effect || getEffect();
       effectSet.add(effect);
-      if (getShouldClearCache()) {
+      if (shouldClearCache) {
         runOnCleanupsFor(fn);
         const newData = fn();
         if (!isRunningEffect && effect && newData !== cachedData) {
           isRunningEffect = true;
           batchEffectFn && setBatchEffectsFn(batchEffectFn);
-          console.log('Before running memo effects')
+          console.log("Before running memo effects");
           runEffects(effectSet);
-          console.log('After running memo effects')
+          console.log("After running memo effects");
           batchEffectFn && setBatchEffectsFn();
           isRunningEffect = false;
         }
 
         // Update the cached data and reset flag
         cachedData = newData;
-        setShouldClearCache(false);
+        shouldClearCache = false;
       }
-      setIsGettingMemo();
+      setIsCalledFormMemo();
       return cachedData;
     }
 
@@ -276,7 +297,7 @@ function init() {
       const currentEffect = getEffect();
       const currentScopeCollectorFn = getScopeCollectorFn();
       const currentClearMemo = getClearMemoFn();
-      const isGettingMemo = getIsGettingMemo();
+      const isCalledFromMemo = getIsCalledFromMemo();
 
       // If inside of a scope pass the data to the
       // scopeCollectorFn so it can dispose when needed
@@ -289,7 +310,7 @@ function init() {
         });
       }
 
-      if (isGettingMemo) {
+      if (isCalledFromMemo) {
         // This flag means the getSignal function is called from inside a memo.
         // This means that specific memoised value will
         // handle the collection and running of effects
@@ -325,16 +346,6 @@ function init() {
   // ============================================================================
   // ============================================================================
   // [[ HELPERS ]]
-
-  function createValue(val) {
-    let value = val;
-    const get = () => value;
-    const set = (newVal) => {
-      value = newVal;
-      return value;
-    };
-    return [get, set];
-  }
 
   function addToSet(set, val) {
     val && set.add(val);
