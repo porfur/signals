@@ -6,33 +6,35 @@ import {
   createMemo,
   createScope,
   onCleanup,
+  untrack,
+  untrackScope,
 } from "./index.js";
 //
 // // [[ CREATE EFFECT ]]
 // When signal getters are called inside a create effect callback
 // that function is stored by the signal and it reruns whenever the
 // value is changed via the signal setter
-(() => {
-  const button = document.querySelector("#createEffect-button");
-  const [count, setCount] = createSignal(0);
-  let flag;
-  (createEffect(() => {
-    console.log("Count is now", count());
-    button.innerText = `Counter: ${count()}`;
-    console.log(count);
-
-    // NOTE: If for some reason you want to nest createEffect
-    // the inner ones need to be scoped and disposed
-    const innerDispose = createScope(() =>
-      createEffect(() => console.log("NESTED count", count())),
-    );
-    innerDispose(() => console.log("InnerDisposeRan"));
-  }),
-    button.addEventListener("click", () => {
-      flag = !flag;
-      return setCount(count() + 1);
-    }));
-})();
+// (() => {
+//   const button = document.querySelector("#createEffect-button");
+//   const [count, setCount] = createSignal(0);
+//   let flag;
+//   (createEffect(() => {
+//     console.log("Count is now", count());
+//     button.innerText = `Counter: ${count()}`;
+//     console.log(count);
+//
+//     // NOTE: If for some reason you want to nest createEffect
+//     // the inner ones need to be scoped and disposed
+//     const innerDispose = createScope(() =>
+//       createEffect(() => console.log("NESTED count", count())),
+//     );
+//     innerDispose(() => console.log("InnerDisposeRan"));
+//   }),
+//     button.addEventListener("click", () => {
+//       flag = !flag;
+//       return setCount(count() + 1);
+//     }));
+// })();
 //
 // // ==============================================================================
 //
@@ -46,7 +48,7 @@ import {
 
   const [positiveCount, setPositiveCount] = createSignal(0);
   const [negativeCount, setNegativeCount] = createSignal(0);
-
+debugger
   createEffect(() => {
     console.log("Positive count is now", positiveCount());
     console.log("Negative count is now", negativeCount());
@@ -130,11 +132,11 @@ import {
       console.log(" ========= With createMemo Start ========= ");
       memobutton.innerText = `With Memo Counter: ${memoCount()}`;
       const fragment = document.createDocumentFragment();
-    console.log('before memo get',memoizedCountDown())
+      console.log("before memo get", memoizedCountDown());
       // for (let i = 0; i <= memoCount(); i++) {
       //   fragment.append(document.createTextNode(` ${memoizedCountDown()}`));
       // }
-    console.log('after memo get')
+      console.log("after memo get");
       memotext.appendChild(fragment);
       console.log(" ========= With createMemo End =========== ");
     });
@@ -160,7 +162,9 @@ import {
 
   const dispose = createScope(() => {
     // ON CLEANUP NOT WORKING FOR SCOPE
-    onCleanup(() => console.log("IN DISPOSE CLEANUP"));
+    onCleanup(() => {
+      console.log("IN DISPOSE CLEANUP");
+    });
 
     const memo = createMemo(() => {
       console.log("Count in Memo is now", count());
@@ -275,6 +279,9 @@ import {
 
   const dispose = createScope(() => {
     const memo = createMemo(() => {
+      createEffect(() => {
+        console.log("Effect inside Memo");
+      });
       return !!(count() % 3);
     });
 
@@ -284,10 +291,9 @@ import {
     });
 
     btn.addEventListener("click", () => {
-      debugger
       setCount(count() + 1);
       btn.innerText = count();
-      console.log("===============CLICK", {count: count() , memo:memo()});
+      console.log("===============CLICK", { count: count(), memo: memo() });
     });
   });
 })();
