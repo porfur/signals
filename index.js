@@ -39,6 +39,9 @@ function init() {
     createValue("scopeCollectorFn");
   const [getOnCleanupSet, setOnCleanupSet] = createValue("onCleanupSet");
   const [getIsCleaning, setIsCleaning] = createValue("isCleaning");
+  const [getIsMemoEffectRunning, setIsMemoEffectRunning] = createValue(
+    "isMemoEffectRunning",
+  );
 
   // A map where the key is an effect or a clearMemoFn and the value is a set
   // of cleanup functions provided by calling cleanup() inside that effect/memo
@@ -73,6 +76,7 @@ function init() {
         currentEffect,
         "Wrap the inner effect inside untrack() to avoid memory leaks.",
       );
+      return;
     }
     if (getClearMemoFn()) {
       console.error(
@@ -81,6 +85,7 @@ function init() {
         "inside a memo.",
         "Wrap the inner effect inside untrack() to avoid memory leaks.",
       );
+      return;
     }
 
     // Here's the main thing.
@@ -118,6 +123,10 @@ function init() {
     const effectsSet = new Set(); // The effects to run when changing the signal value.
     const clearMemosSet = new Set(); // Clear functions for memoizes values (I told you not to read this).
 
+    // Place to keep track which scope collector functions have
+    // already been called so I can avoid unnecessary function calls.
+    const scopeCollectorsSet = new Set();
+
     // When the getter is called inside the callback of a createMemo (don't)
     // or createEffect, that callback is stored in the Sets of that signal.
     function getSignal() {
@@ -135,13 +144,24 @@ function init() {
       // and run even when no longer neded. In the business this is called a 'memory leak'
       // The currentScopeCollectorFn is just another function that can be set globaly
       // and used by a signal to keep track of effects and memos for disposal.
-      if (currentScopeCollectorFn) {
+      if (
+        currentScopeCollectorFn &&
+        !scopeCollectorsSet.has(currentScopeCollectorFn)
+      ) {
         currentScopeCollectorFn({
           effectsSet,
           currentEffect,
           clearMemosSet,
           currentClearMemo,
         });
+        scopeCollectorsSet.add(currentScopeCollectorFn);
+      }
+
+      // A memo runs it's own internal effects.
+      // This flag specifies that it's running the effects
+      // now and there is no need to re-run them here.
+      if (getIsMemoEffectRunning()) {
+        return signalValue;
       }
 
       // The currentEffect function is added to the set of effects for this signal
@@ -184,7 +204,6 @@ function init() {
     // These are check for nested createMemos or createMemos nested inside
     // createEffect along with errors letting the user know ths is not cool.
     const previousClearMemoFn = getClearMemoFn();
-    const currentEffect = getEffect();
     if (previousClearMemoFn) {
       console.error(
         "You are nesting memos",
@@ -196,13 +215,13 @@ function init() {
       );
       return;
     }
-    if (currentEffect) {
+    if (getEffect()) {
       console.error(
         "Cannot nest memos inside an effect.",
         "The memo",
         fn,
         "is nested inside",
-        currentEffect,
+        getEffect(),
         "Not sure what the usecase is but you can wrap the memo in untrack() if you want to keep nesting.",
       );
       return;
@@ -239,30 +258,36 @@ function init() {
 
     // Up to this point createMemo behaves like createEffect.
     // From here on it takes on a role similar to a signal.
+    // Here is a set to hold effects
+    const effectsSet = new Set();
 
-    // Flag to check if currently running an effect.
-    // An effect calling the memo getter will run effects which in turn will call the getter
-    // which will call the getter... (insert recursion joke)
-    let isRunningEffect = false;
-    const effectSet = new Set();
-
-    // Getter function that returns cachedData or updated data
+    // This is the getter function of the memoized value
     function getMemoizedData() {
-      const batchEffectFn = getBatchEffectsFn();
-      const activeEffect = getEffect();
-      addToSet(effectSet, activeEffect);
-      effectSet.add(activeEffect);
+      // Flag to check if currently running an effect.
+      // If a memo is called inside an effect it will run it's effects if the value has changed.
+      // This in turn will call the memo which will run the effects which will call the memo
+      // which will run effects... (insert recursion joke)
+      const isMemoEffectRunning = getIsMemoEffectRunning();
+
+      // Same as a signal getter it grabs the current effect
+      const currentEffect = getEffect();
+      const currentScopeCollectorFn = getScopeCollectorFn();
+      if (currentScopeCollectorFn) {
+        currentScopeCollectorFn({
+          effectsSet,
+          currentEffect,
+        });
+      }
+
+      addToSet(effectsSet, currentEffect);
       if (shouldClearCache) {
-        runOnCleanupsFor(fn);
+        runOnCleanupsFor(fn); // TO TEST
+
         const newData = fn();
-        if (!isRunningEffect && activeEffect && newData !== cachedData) {
-          isRunningEffect = true;
-          batchEffectFn && setBatchEffectsFn(batchEffectFn);
-          console.log("Before running memo effects");
-          runEffects(effectSet);
-          console.log("After running memo effects");
-          batchEffectFn && setBatchEffectsFn();
-          isRunningEffect = false;
+        if (!isMemoEffectRunning && newData !== cachedData) {
+          setIsMemoEffectRunning(true);
+          runEffects(effectsSet);
+          setIsMemoEffectRunning();
         }
         cachedData = newData;
         shouldClearCache = false;

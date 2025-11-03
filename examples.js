@@ -48,12 +48,13 @@ import {
 
   const [positiveCount, setPositiveCount] = createSignal(0);
   const [negativeCount, setNegativeCount] = createSignal(0);
-debugger
+  const mixedValue = () => `${positiveCount()}${negativeCount()}`;
   createEffect(() => {
     console.log("Positive count is now", positiveCount());
     console.log("Negative count is now", negativeCount());
     batchbutton.innerText = `Batch Counter: ${positiveCount()}${negativeCount()}`;
     nobatchbutton.innerText = `No Batch Counter: ${positiveCount()}${negativeCount()}`;
+    console.log("mixedValue", mixedValue());
   });
 
   nobatchbutton.addEventListener("click", () => {
@@ -276,22 +277,30 @@ debugger
   const btn = document.querySelector("#memo-effect-btn");
   const text = document.querySelector("#memo-effect-text");
   const [count, setCount] = createSignal(0);
+  const [count2, setCount2] = createSignal(0);
 
   const dispose = createScope(() => {
     const memo = createMemo(() => {
-      createEffect(() => {
-        console.log("Effect inside Memo");
-      });
       return !!(count() % 3);
     });
+    const memo2 = createMemo(() => {
+      return !!(count2() % 3);
+    });
+    const memoMix = () => memo() && memo2();
 
     createEffect(() => {
-      text.innerText = `Is divisible by 3 ${memo()}`;
-      console.log("Effect ran with ", memo());
+      // text.innerText = `Is divisible by 3 ${memo()}`;
+      console.log("in effect normal", memo(), memo2());
+    });
+    createEffect(() => {
+      console.log("in effect normal2", count(), count2());
     });
 
     btn.addEventListener("click", () => {
-      setCount(count() + 1);
+    // batch(()=> {
+        setCount(count() + 1);
+        setCount2(count2() + 1);
+      // } )
       btn.innerText = count();
       console.log("===============CLICK", { count: count(), memo: memo() });
     });
