@@ -237,26 +237,29 @@ function init() {
     // the global clearMemoFn is set back to undefined
     setClearMemoFn();
 
+    // Up to this point createMemo behaves like createEffect.
+    // From here on it takes on a role similar to a signal.
+
+    // Flag to check if currently running an effect.
+    // An effect calling the memo getter will run effects which in turn will call the getter
+    // which will call the getter... (insert recursion joke)
     let isRunningEffect = false;
-    let effect;
     const effectSet = new Set();
-    let batchEffectFn;
 
     // Getter function that returns cachedData or updated data
     function getMemoizedData() {
-      batchEffectFn = batchEffectFn || getBatchEffectsFn();
-      effect = effect || getEffect();
-      effectSet.add(effect);
+      const batchEffectFn = getBatchEffectsFn();
+      const activeEffect = getEffect();
+      addToSet(effectSet, activeEffect);
+      effectSet.add(activeEffect);
       if (shouldClearCache) {
         runOnCleanupsFor(fn);
         const newData = fn();
-        if (effect && newData !== cachedData) {
+        if (!isRunningEffect && activeEffect && newData !== cachedData) {
           isRunningEffect = true;
           batchEffectFn && setBatchEffectsFn(batchEffectFn);
           console.log("Before running memo effects");
-          untrack(() => {
-            runEffects(effectSet);
-          });
+          runEffects(effectSet);
           console.log("After running memo effects");
           batchEffectFn && setBatchEffectsFn();
           isRunningEffect = false;
