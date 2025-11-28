@@ -26,7 +26,7 @@ function init() {
   //
   // They are this over complicated because
   // I wanted to call a function instead of re-assignment because it looks cool.
-  // Then it was hell stepping in through the debugger to se what I'm doing.
+  // Then it was hell stepping in through the debugger to see what I'm doing.
   // Now it looks cool, it's even more convoluted and I can log the global values if needed.
 
   const { createValue, globalValues } = initGlobalValues();
@@ -122,10 +122,7 @@ function init() {
     let signalValue = initialValue;
     const effectsSet = new Set(); // The effects to run when changing the signal value.
     const clearMemosSet = new Set(); // Clear functions for memoizes values (I told you not to read this).
-
-    // Place to keep track which scope collector functions have
-    // already been called so I can avoid unnecessary function calls.
-    const scopeCollectorsSet = new Set();
+    const scopeCollectorsSet = new Set(); // Holds references of scopeCollectors
 
     // When the getter is called inside the callback of a createMemo (don't)
     // or createEffect, that callback is stored in the Sets of that signal.
@@ -138,28 +135,26 @@ function init() {
       // using globaly set functions from other places to do different things.
       // But you are not looking at them yet. Right?
       const currentClearMemo = getClearMemoFn();
-      const currentScopeCollectorFn = getScopeCollectorFn();
 
       // Later on you will discover that effects get trapped inside a signal
-      // and run even when no longer neded. In the business this is called a 'memory leak'
+      // and run even when no longer needed. In the business this is called a 'memory leak'
       // The currentScopeCollectorFn is just another function that can be set globaly
-      // and used by a signal to keep track of effects and memos for disposal.
-      if (
-        currentScopeCollectorFn &&
-        !scopeCollectorsSet.has(currentScopeCollectorFn)
-      ) {
-        currentScopeCollectorFn({
-          effectsSet,
-          currentEffect,
-          clearMemosSet,
-          currentClearMemo,
-        });
-        scopeCollectorsSet.add(currentScopeCollectorFn);
-      }
+      // and used by a signal to keep track of effects and memos for disposal by the
+      // createScope function from which it came.
+      //
+      // The whole point of scopeCollectorsSet is to do this check and call
+      // the currentScopeCollectorFn only once.
+      // The whole checking is wrapped up in the handleScopeCollecting function.
+      handleScopeCollecting(scopeCollectorsSet, {
+        effectsSet,
+        currentEffect,
+        clearMemosSet,
+        currentClearMemo,
+      });
 
-      // A memo runs it's own internal effects.
-      // This flag specifies that it's running the effects
-      // now and there is no need to re-run them here.
+      // A memo can contain signals but it also tracks and runs it's own effects.
+      // This flag specifies that this signal getter is called from inside a memo
+      // effect and therefore should not be tracking anything.
       if (getIsMemoEffectRunning()) {
         return signalValue;
       }
@@ -181,6 +176,7 @@ function init() {
         //It works and I'm not changing it to find out.
 
         // Memos are cleared first (you will read about it later)
+        // The memos are cleared onlu if the value of a signal changes
         clearMemoForSet(clearMemosSet);
         signalValue = newValue;
         // The effects from the set will run.
@@ -237,15 +233,15 @@ function init() {
     addFuncToGlobalCleanup(fn);
 
     // There is a global clearMemoFn currently empty.
-    // We set it to a function that swithces shouldClearCache to true
+    // We set it to a function that switches shouldClearCache to true
     // Now this instance of the memo can be marked to recompute from outside.
     setClearMemoFn(() => {
       shouldClearCache = true;
     });
 
     // Cache the data for the first time.
-    // Any signals called inside the callback will now be able to access the global clearMemoFn
-    // Which was just set above.
+    // Any signals called inside the callback will now be able to
+    // access the global clearMemoFn Which was just set above.
     // Now if you go back to createSignal and look over what I told you to skip, you can see a
     // clearMemosSet which will be populated with the now global function that sets shouldClearCache to true
     // And if you look at setSignal you can see how the functions are called when the signal changes.
@@ -258,8 +254,9 @@ function init() {
 
     // Up to this point createMemo behaves like createEffect.
     // From here on it takes on a role similar to a signal.
-    // Here is a set to hold effects
+    // Here is a set to hold effects same as a signal.
     const effectsSet = new Set();
+    const scopeCollectorsSet = new Set(); // Same as a signal
 
     // This is the getter function of the memoized value
     function getMemoizedData() {
@@ -267,30 +264,40 @@ function init() {
       // If a memo is called inside an effect it will run it's effects if the value has changed.
       // This in turn will call the memo which will run the effects which will call the memo
       // which will run effects... (insert recursion joke)
+      // That's why we check if this call is inside a memo effect call.
       const isMemoEffectRunning = getIsMemoEffectRunning();
 
       // Same as a signal getter it grabs the current effect
       const currentEffect = getEffect();
-      const currentScopeCollectorFn = getScopeCollectorFn();
-      if (currentScopeCollectorFn) {
-        currentScopeCollectorFn({
-          effectsSet,
-          currentEffect,
-        });
-      }
 
+      // Same as a signal this handles scoping for the memo
+      handleScopeCollecting(scopeCollectorsSet, { effectsSet, currentEffect });
+
+      //Same as the signal current effect is added to the set
       addToSet(effectsSet, currentEffect);
-      if (shouldClearCache) {
-        runOnCleanupsFor(fn); // TO TEST
 
+      // Here is where we check if the memo value should re-compute
+      // If a signal getter is called inside createMemo then that signal will have stored
+      // The function needed to make shouldClearCache === true
+      // That function is called when a signal value changes.
+      // So a signal is changed setSignal( getSignal() + 1 )
+      // That makes shouldClearCache === true
+      if (shouldClearCache) {
+        // Will make sense later
+        runOnCleanupsFor(fn);
+
+        // Memo callback runs
         const newData = fn();
+
+        // Here is where that recursion mentioned above comes into place.
+        // The effects run only if the new data changes and isMemoEffectRunning is false.
         if (!isMemoEffectRunning && newData !== cachedData) {
-          setIsMemoEffectRunning(true);
+          setIsMemoEffectRunning(true); // Flag to avoid recursion
           runEffects(effectsSet);
-          setIsMemoEffectRunning();
+          setIsMemoEffectRunning(); // Reset flag
         }
         cachedData = newData;
-        shouldClearCache = false;
+        shouldClearCache = false; // reset
       }
       return cachedData;
     }
@@ -300,11 +307,11 @@ function init() {
   // ---------------------------------------------------------------------
 
   // (( onCleanup ))
-  // Used inside a createMemo or createEffect.
-  // Takes a callback funnction that runs before re-running the memo/effect.
+  // This function can be called inside a createMemo or createEffect
+  // It takes a callback funnction that will run before re-running the memo/effect.
   function onCleanup(cleanupCallback) {
-    // If the global isCleaning is true that onCleanup
-    // was called from inside a cleanup function.
+    // isCleaning is a global flag that is enabled before running cleanups
+    // If true that onCleanup function was nested inside another onCleanup
     // In that case just run the callback and return early.
     if (getIsCleaning()) {
       console.warn(
@@ -342,6 +349,7 @@ function init() {
     // value is a Set of the disposable effects/clearMemos
     let scopedEffectsMap = new Map();
     let scopedClearMemosMap = new Map();
+    let onDisposeCallbackSet = new Set();
 
     // This scopeCollector function is used to get a signal's effects/clearMemoFns
     // and add them to the scopedEffectsMap/scopedClearMemosMap
@@ -350,6 +358,7 @@ function init() {
       currentEffect,
       clearMemosSet,
       currentClearMemo,
+      onDispose = () => {},
     }) {
       addDisposableToScopeMap(scopedEffectsMap, effectsSet, currentEffect);
       addDisposableToScopeMap(
@@ -357,6 +366,7 @@ function init() {
         clearMemosSet,
         currentClearMemo,
       );
+      onDisposeCallbackSet.add(onDispose);
     }
 
     // Removes all disposable effects/clearMemos
@@ -367,8 +377,10 @@ function init() {
       }
       disposeFromScopeMap(scopedEffectsMap);
       disposeFromScopeMap(scopedClearMemosMap);
+      onDisposeCallbackSet.forEach((fn) => fn());
       scopedEffectsMap = undefined;
       scopedClearMemosMap = undefined;
+      onDisposeCallbackSet = undefined;
       disposeCallback && disposeCallback();
     }
 
@@ -498,6 +510,31 @@ function init() {
     });
   }
 
+  // This utility function is used by signals and memo.
+  // It grabs the current scope collector function and
+  // calls it with the appropriate options.
+  // I also takes in a signal/memos scopeCollectorsSet and uses it to avoid extra function calls
+  function handleScopeCollecting(
+    scopeCollectorsSet,
+    { effectsSet, currentEffect, clearMemosSet, currentClearMemo },
+  ) {
+    const currentScopeCollectorFn = getScopeCollectorFn();
+    if (
+      currentScopeCollectorFn &&
+      !scopeCollectorsSet.has(currentScopeCollectorFn)
+    ) {
+      // This passes all the signal's effects and memos to the scope to be used on disposal
+      currentScopeCollectorFn({
+        effectsSet,
+        currentEffect,
+        clearMemosSet,
+        currentClearMemo,
+        onDispose: () => {
+          scopeCollectorsSet.delete(currentScopeCollectorFn);
+        },
+      });
+    }
+  }
   function runOnCleanupsFor(callback) {
     setIsCleaning(true); //Flag for checking nested cleanups
     if (globalCleanupMap.has(callback)) {
